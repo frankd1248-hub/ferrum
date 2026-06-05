@@ -1,0 +1,5 @@
+fn main() => bool {
+    let x : i32 = 0;
+    let y : bool = (bool) x;
+    return y; // expect 0
+}

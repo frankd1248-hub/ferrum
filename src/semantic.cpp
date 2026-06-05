@@ -123,6 +123,37 @@ void SemanticAnalyzer::visit(BinaryExpr& bin) {
     }
 }
 
+static bool isCastCompatible(Type from, Type to) {
+    if (from == to) return true;
+
+    // From A to B
+    static const std::pair<Type,Type> allowed[] = {
+        { Type::Int32t, Type::Boolt  },
+        { Type::Boolt,  Type::Int32t },
+    };
+
+    for (auto& [f, t] : allowed)
+        if (f == from && t == to) return true;
+
+    return false;
+}
+
+void SemanticAnalyzer::visit(CastExpr& cast) {
+    cast.expr->accept(*this);
+    Type from = cast.expr->resolvedType;
+    Type to   = cast.targetType;
+
+    if (!isCastCompatible(from, to)) {
+        err.report(cast.token,
+            "Cannot cast from '" + TypetoString(from) +
+            "' to '" + TypetoString(to) + "'.");
+        cast.resolvedType = Type::Nullt;
+        return;
+    }
+
+    cast.resolvedType = to;
+}
+
 void SemanticAnalyzer::visit(LiteralExpr& lit) {
     if (std::holds_alternative<int32_t>(lit.value)) {
         lit.resolvedType = Type::Int32t;

@@ -102,6 +102,13 @@ void CodeGen::emitInstruction(const IRInstruction& instr) {
             emit("mov\trax, " + resolve(instr.src1));
             emit("mov\t" + stackRef(instr.dest.id) + ", rax");
             break;
+        case IROp::ToBool:
+            emit("mov\trax, " + resolve(instr.src1));
+            emit("cmp\trax, 0");
+            emit("setne\tal");
+            emit("movzx\trax, al");
+            emit("mov\t" + stackRef(instr.dest.id) + ", rax");
+            break;
     }
 }
 

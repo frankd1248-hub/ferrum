@@ -42,6 +42,30 @@ static Expr* boolLit(Parser& parser, bool canAssign) {
     return literal;
 }
 
+static Expr* lparen(Parser& p, bool canAssign) {
+    TokenType next = p.peek().type;
+
+    if (next == TK_I32 || next == TK_BOOL || next == TK_VOID) {
+        if (p.peekNext().type == TK_RIGHT_PAREN) {
+            // it's a cast
+            p.advance();
+            Type target = p.parseTypeKeyword_prev();  // get Type from previous token
+            p.consume(TK_RIGHT_PAREN, "Expect ')' after cast type.");
+
+            auto* cast = new CastExpr();
+            cast->token      = p.previous();
+            cast->targetType = target;
+            cast->expr       = p.expression(PREC_UNARY);
+            return cast;
+        }
+    }
+
+    // otherwise it's a grouped expression
+    Expr* inner = p.expression(PREC_NONE);
+    p.consume(TK_RIGHT_PAREN, "Expect ')' after expression.");
+    return inner;
+}
+
 static Expr* number(Parser& parser, bool canAssign) {
     LiteralExpr* literal = new LiteralExpr();
     literal->value = std::stoi(parser.previous().lexeme);
@@ -65,7 +89,7 @@ static Expr* variable(Parser& p, bool canAssign) {
 
 static ParseRule rules[] = {
     { nullptr,  nullptr, PREC_NONE       }, // TK_EOF
-    { nullptr,  nullptr, PREC_CALL       }, // TK_LEFT_PAREN
+    { lparen,   nullptr, PREC_CALL       }, // TK_LEFT_PAREN
     { nullptr,  nullptr, PREC_NONE       }, // TK_RIGHT_PAREN
     { nullptr,  nullptr, PREC_NONE       }, // TK_LEFT_BRACE
     { nullptr,  nullptr, PREC_NONE       }, // TK_RIGHT_BRACE
@@ -252,4 +276,13 @@ ASTProgram Parser::parse() {
 
     program.mainFunction = main;
     return program;
+}
+
+Type Parser::parseTypeKeyword_prev() {
+    switch (previous().type) {
+        case TK_I32:  return Type::Int32t;
+        case TK_BOOL: return Type::Boolt;
+        case TK_VOID: return Type::Voidt;
+        default:      return Type::Nullt;
+    }
 }

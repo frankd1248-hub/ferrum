@@ -83,6 +83,9 @@ public:
     Expr* expression(Precedence precedence);
     Stmt* statement();
 
+    Type parseTypeKeyword();
+    Type parseTypeKeyword_prev();
+
     ErrorReporter& err;
 
 private:
@@ -93,8 +96,6 @@ private:
     int current = 0;
     
     Expr* last = nullptr;
-
-    Type parseTypeKeyword();
 
     BlockStmt*  block();
     FuncDecl*   fnDeclaration();

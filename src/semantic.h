@@ -21,6 +21,7 @@ public:
 
     void visit(AssignExpr& node)  override;
     void visit(BinaryExpr& node)  override;
+    void visit(CastExpr& node)    override;
     void visit(LiteralExpr& node) override;
     void visit(UnaryExpr& node)   override;
     void visit(VarExpr& node)     override;

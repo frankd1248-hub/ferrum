@@ -25,6 +25,7 @@ inline std::string TypetoString(Type t) {
 
 class AssignExpr;
 class BinaryExpr;
+class CastExpr;
 class LiteralExpr;
 class UnaryExpr;
 class VarExpr;
@@ -40,6 +41,7 @@ public:
     virtual ~ASTVisitor() = default;
     virtual void visit(AssignExpr&)  = 0;
     virtual void visit(BinaryExpr&)  = 0;
+    virtual void visit(CastExpr&)    = 0;
     virtual void visit(LiteralExpr&) = 0;
     virtual void visit(UnaryExpr&)   = 0;
     virtual void visit(VarExpr&)     = 0;
@@ -82,6 +84,17 @@ public:
     Expr* left;
     Expr* right;
     Token op;
+};
+
+class CastExpr : public Expr {
+public:
+    void accept(ASTVisitor& v) override { 
+        v.visit(*this); 
+    }
+
+    Type   targetType;
+    Expr*  expr;
+    Token  token;
 };
 
 class LiteralExpr : public Expr {

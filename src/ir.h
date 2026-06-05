@@ -18,11 +18,17 @@ enum class IROp {
     Jump,    // unconditional jump to label
     JumpIf,  // conditional jump: if src != 0, jump to label
     Call,    // dest = call fn(args...)
-    Eq, Neq, Less, Leq, Gret, Geq,  // comparison; result is 0 or 1
+    Eq, 
+    Neq, 
+    Less, 
+    Leq, 
+    Gret, 
+    Geq,    // comparison; result is 0 or 1
     Not, 
     Store,  // store src1 into the slot named by label (the variable name)
     Load,   // dest = value of variable named by label
     Mov,    // dest = src1 (copy)
+    ToBool, // dest = (src1 != 0) ? 1 : 0
 };
 
 struct IRInstruction {
@@ -72,6 +78,7 @@ inline std::string getOpString(IROp op) {
         case IROp::Store:  return "sto";
         case IROp::Load:   return "lod";
         case IROp::Mov:    return "mov";
+        case IROp::ToBool: return "bool";
         default: return "nop";
     }
 }
@@ -137,6 +144,12 @@ inline void printIRProgram(const IRProgram& program) {
                     printf("%s, %s", 
                         stringIRValue(inst.dest).c_str(), 
                         stringIRValue(inst.src1).c_str());
+                    break;
+                case IROp::ToBool:
+                    printf("%s <- %s", 
+                        stringIRValue(inst.dest).c_str(),
+                        stringIRValue(inst.src1).c_str());
+                    break;
             }
 
             printf("\n");

@@ -122,6 +122,20 @@ void IRGen::visit(BinaryExpr& bin) {
     lastValue = dest;
 }
 
+void IRGen::visit(CastExpr& cast) {
+    cast.expr->accept(*this);
+
+    if (cast.targetType == Type::Boolt &&
+        cast.expr->resolvedType == Type::Int32t) {
+
+        IRValue dest = newTemp();
+        emit(IRInstruction { IROp::ToBool, dest, lastValue, {} });
+        lastValue = dest;
+    }
+
+    // Otherwise conversion is not needed
+}
+
 void IRGen::visit(LiteralExpr& lit) {
     IRValue dest = newTemp();
     emit(IRInstruction {

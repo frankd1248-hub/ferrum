@@ -20,6 +20,8 @@ public:
 
     void visit(AssignExpr&)  override;
     void visit(BinaryExpr&)  override;
+    void visit(CastExpr&)    override;
+    
     void visit(LiteralExpr&) override;
     void visit(UnaryExpr&)   override;
     void visit(VarExpr&)     override;
