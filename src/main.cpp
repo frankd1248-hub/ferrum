@@ -60,6 +60,7 @@ int main(int argc, char** argv) {
 
     IRGen irgen(&symtab);
     IRProgram ir = irgen.emit(&ast);
+    auto strlabels = irgen.getStrLabels();
 
     Optimizer optimizer(ir);
     optimizer.optimize();
@@ -71,7 +72,7 @@ int main(int argc, char** argv) {
     path = path.substr(path.find_last_of("/") + 1);
     path = path.substr(0, path.find_first_of("."));
     
-    CodeGen codegen(ir);
+    CodeGen codegen(ir, strlabels);
     codegen.generate(string("./build/") + path + ".s");
 
     string assembleInstruction = string("as ./build/") + path + ".s -o ./build/" + path + ".o"; 

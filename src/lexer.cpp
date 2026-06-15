@@ -30,6 +30,8 @@ std::vector<Token> Lexer::tokenize() {
             switch (c) {
                 case '(': addToken(TK_LEFT_PAREN, "("); break;
                 case ')': addToken(TK_RIGHT_PAREN, ")"); break;
+                case '[':  addToken(TK_LEFT_BRACKET,  "["); break;
+                case ']':  addToken(TK_RIGHT_BRACKET, "]"); break;
                 case '{': addToken(TK_LEFT_BRACE, "{"); break;
                 case '}': addToken(TK_RIGHT_BRACE, "}"); break;
                 case ';': addToken(TK_SEMICOLON, ";"); break;
@@ -58,6 +60,8 @@ std::vector<Token> Lexer::tokenize() {
                     else if (match('=')) addToken(TK_EQUAL_EQUAL, "==");
                     else                 addToken(TK_EQUAL, "=");
                     break;
+                case '"':  scanString(); break;
+                case '\'': scanChar(); break;
                 default:
                     err.report(line, current - lineStart, "Unexpected character.");
             }
@@ -66,4 +70,47 @@ std::vector<Token> Lexer::tokenize() {
     
     tokens.push_back({ TK_EOF, "", line, 0 });
     return tokens;
+}
+
+void Lexer::scanChar() {
+    char value;
+    if (peek() == '\\') {
+        advance();
+        switch (peek()) {
+            case 'n':  value = '\n'; break;
+            case 't':  value = '\t'; break;
+            case '\\': value = '\\'; break;
+            case '\'': value = '\''; break;
+            default:   value = peek(); break;
+        }
+    } else {
+        value = peek();
+    }
+    advance();
+    if (peek() != '\'') { err.report(line, current - lineStart, "Unterminated char literal."); return; }
+    advance();
+    addToken(TK_CHAR_LIT, std::string(1, value));
+}
+
+void Lexer::scanString() {
+    std::string value;
+    while (peek() != '"' && !isAtEnd()) {
+        if (peek() == '\\') {
+            advance();
+            switch (peek()) {
+                case 'n':  value += '\n'; break;
+                case 't':  value += '\t'; break;
+                case '\\': value += '\\'; break;
+                case '"':  value += '"';  break;
+                default:   value += peek(); break;
+            }
+        } else {
+            if (peek() == '\n') line++;
+            value += peek();
+        }
+        advance();
+    }
+    if (isAtEnd()) { err.report(line, current - lineStart, "Unterminated string."); return; }
+    advance();;
+    addToken(TK_STRING_LIT, value);
 }

@@ -24,9 +24,14 @@ public:
     void visit(BinaryExpr&)  override;
     void visit(CallExpr&)    override;
     void visit(CastExpr&)    override;
+    void visit(IndexExpr&)   override;
     void visit(LiteralExpr&) override;
     void visit(UnaryExpr&)   override;
     void visit(VarExpr&)     override;
+
+    std::unordered_map<std::string, std::string> getStrLabels() {
+        return stringLabels;
+    }
 
 private:
     IRProgram  program;
@@ -39,10 +44,12 @@ private:
     ASTProgram* AST;
 
     std::unordered_map<std::string, int> varTemps;
+    std::unordered_map<std::string, std::string> stringLabels;
 
     IRValue newTemp();  // returns IRValue{Temp, tempCount_++}
     std::string newLabel(const std::string& prefix);
-    void    emit(IRInstruction); // appends to currentFunc_.body
+    std::string stringLabel(const std::string& value);
+    void    emit(IRInstruction); // appends to currentFunc.body
 };
 
 #endif

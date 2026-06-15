@@ -21,6 +21,14 @@ std::string IRGen::newLabel(const std::string& prefix) {
     return prefix + "_" + std::to_string(labelCount++);
 }
 
+std::string IRGen::stringLabel(const std::string& value) {
+    if (!stringLabels.count(value)) {
+        std::string lbl = ".LCs" + std::to_string(stringLabels.size());
+        stringLabels[value] = lbl;
+    }
+    return stringLabels[value];
+}
+
 void IRGen::visit(BlockStmt& block) {
     for (auto* stmt : block.stmts) {
         stmt->accept(*this);
@@ -237,11 +245,25 @@ void IRGen::visit(CastExpr& cast) {
     IRValue dest = newTemp();
     IROp op;
 
-    if (to == Type::Boolt)    op = IROp::ToBool;
+    if (to == Type::Int32t && from == Type::Chart) return;
+
+    if      (to == Type::Boolt)    op = IROp::ToBool;
     else if (to == Type::Float32t) op = IROp::ToFloat;
     else if (to == Type::Int32t)   op = IROp::ToInt;
 
     emit(IRInstruction { op, dest, lastValue, {} });
+    lastValue = dest;
+}
+
+void IRGen::visit(IndexExpr& expr) {
+    expr.object->accept(*this);
+    IRValue strPtr = lastValue;
+
+    expr.index->accept(*this);
+    IRValue idx = lastValue;
+
+    IRValue dest = newTemp();
+    emit({ IROp::Index, dest, strPtr, idx, "" });
     lastValue = dest;
 }
 
@@ -255,7 +277,8 @@ void IRGen::visit(LiteralExpr& lit) {
             IRValue { .kind=IRValue::Kind::FloatConst, .id=-1, .fval=fval },
             {}
         });
-    } else {
+    } else if (std::holds_alternative<int32_t>(lit.value) ||
+               std::holds_alternative<bool>(lit.value)) {
         int ival = std::holds_alternative<int32_t>(lit.value)
             ? std::get<int32_t>(lit.value)
             : (int) std::get<bool>(lit.value);
@@ -264,6 +287,16 @@ void IRGen::visit(LiteralExpr& lit) {
             IRValue { .kind=IRValue::Kind::IntConst, .id=-1, .ival = ival },
             {}
         });
+    } else if (std::holds_alternative<char>(lit.value)) {
+        emit({ IROp::Const, dest,
+            IRValue { .kind=IRValue::Kind::IntConst, .id=-1, .ival=(int)(unsigned char)std::get<char>(lit.value) },
+            {}, "" });
+        lastValue = dest;
+    } else if (std::holds_alternative<std::string>(lit.value)) {
+        const std::string& val = std::get<std::string>(lit.value);
+        std::string lbl = stringLabel(val);
+        emit({ IROp::StringConst, dest, {}, {}, lbl });
+        lastValue = dest;
     }
 
     lastValue = dest;

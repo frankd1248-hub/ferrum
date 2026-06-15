@@ -10,6 +10,8 @@ enum class Type {
     Boolt,
     Int32t,
     Float32t,
+    Chart,
+    Stringt,
     Voidt,
     Nullt,
 };
@@ -17,8 +19,10 @@ enum class Type {
 inline std::string TypetoString(Type t) {
     switch(t) {
         case Type::Boolt:    return "bool";
+        case Type::Chart:    return "char";
         case Type::Int32t:   return "i32";
         case Type::Float32t: return "f32";
+        case Type::Stringt:  return "String";
         case Type::Voidt:    return "void";
         case Type::Nullt:    return "null";
         default: return "?";
@@ -29,6 +33,7 @@ class AssignExpr;
 class BinaryExpr;
 class CallExpr;
 class CastExpr;
+class IndexExpr;
 class LiteralExpr;
 class UnaryExpr;
 class VarExpr;
@@ -49,6 +54,7 @@ public:
     virtual void visit(BinaryExpr&)  = 0;
     virtual void visit(CallExpr&)    = 0;
     virtual void visit(CastExpr&)    = 0;
+    virtual void visit(IndexExpr&)   = 0;
     virtual void visit(LiteralExpr&) = 0;
     virtual void visit(UnaryExpr&)   = 0;
     virtual void visit(VarExpr&)     = 0;
@@ -115,13 +121,24 @@ public:
     Token  token;
 };
 
+class IndexExpr : public Expr {
+public:
+    void accept(ASTVisitor& v) override { 
+        v.visit(*this); 
+    }
+
+    Expr*  object;
+    Expr*  index;
+    Token  bracket;
+};
+
 class LiteralExpr : public Expr {
 public:
     void accept(class ASTVisitor& visitor) override {
         visitor.visit(*this);
     }
 
-    std::variant<int32_t, _Float32, bool> value;
+    std::variant<int32_t, _Float32, bool, char, std::string> value;
 };
 
 class UnaryExpr : public Expr {

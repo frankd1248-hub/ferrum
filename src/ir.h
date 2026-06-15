@@ -15,35 +15,38 @@ struct IRValue {
 };
 
 enum class IROp {
-    Const,   // dest = constant
-    FConst,  // dest = float constant (uses src1.fval)
+    Const,        // dest = constant
+    FConst,       // dest = float constant (uses src1.fval)
+    StringConst,  // dest = pointer to string literal (address in rax)
+    CharConst,    // dest = char literal
+    Index,        // dest = string[index] — loads one byte
     Add, 
     Sub, 
     Mul, 
-    Div,     // dest = left op right
+    Div,          // dest = left op right
     FAdd, 
     FSub, 
     FMul, 
     FDiv,
-    Ret,     // return src
-    Label,   // label definition (dest holds label id)
-    Jump,    // unconditional jump to label
-    JumpIf,  // conditional jump: if src != 0, jump to label
-    Call,    // dest = call fn(args...)
-    Param,   // dest = param N (index stored in src1.ival)
+    Ret,          // return src
+    Label,        // label definition (dest holds label id)
+    Jump,         // unconditional jump to label
+    JumpIf,       // conditional jump: if src != 0, jump to label
+    Call,         // dest = call fn(args...)
+    Param,        // dest = param N (index stored in src1.ival)
     Eq, 
     Neq, 
     Less, 
     Leq, 
     Gret, 
-    Geq,     // comparison; result is 0 or 1
+    Geq,          // comparison; result is 0 or 1
     Not, 
-    Store,   // store src1 into the slot named by label (the variable name)
-    Load,    // dest = value of variable named by label
-    Mov,     // dest = src1 (copy)
-    ToFloat, // dest = (f32) src1  — i32 → f32 conversion
-    ToInt,   // dest = (i32) src1  — f32 → i32 conversion (truncates)
-    ToBool,  // already exists — reuse for f32 → bool (fval != 0.0)
+    Store,        // store src1 into the slot named by label (the variable name)
+    Load,         // dest = value of variable named by label
+    Mov,          // dest = src1 (copy)
+    ToFloat,      // dest = (f32) src1  — i32 → f32 conversion
+    ToInt,        // dest = (i32) src1  — f32 → i32 conversion (truncates)
+    ToBool,       
 };
 
 struct IRInstruction {
@@ -79,36 +82,39 @@ inline static void printIndents(int amount) {
 
 inline std::string getOpString(IROp op) {
     switch (op) {
-        case IROp::Const:   return "const";
-        case IROp::FConst:  return "constf";
-        case IROp::Add:     return "add";
-        case IROp::Sub:     return "sub";
-        case IROp::Mul:     return "mul";
-        case IROp::Div:     return "div";
-        case IROp::FAdd:    return "addf";
-        case IROp::FSub:    return "subf";
-        case IROp::FMul:    return "mulf";
-        case IROp::FDiv:    return "divf";
-        case IROp::Ret:     return "ret";
-        case IROp::Label:   return "label";
-        case IROp::Jump:    return "jmp";
-        case IROp::JumpIf:  return "jnz";
-        case IROp::Call:    return "call";
-        case IROp::Param:   return "param";
-        case IROp::Eq:      return "eq";
-        case IROp::Neq:     return "neq";
-        case IROp::Less:    return "less";
-        case IROp::Leq:     return "leq";
-        case IROp::Gret:    return "gret";
-        case IROp::Geq:     return "geq";
-        case IROp::Not:     return "not";
-        case IROp::Store:   return "sto";
-        case IROp::Load:    return "lod";
-        case IROp::Mov:     return "mov";
-        case IROp::ToFloat: return "float";
-        case IROp::ToInt:   return "int";
-        case IROp::ToBool:  return "bool";
-        default: return "nop";
+        case IROp::Const:       return "const";
+        case IROp::FConst:      return "constf";
+        case IROp::CharConst:   return "constc";
+        case IROp::StringConst: return "consts";
+        case IROp::Index:       return "index";
+        case IROp::Add:         return "add";
+        case IROp::Sub:         return "sub";
+        case IROp::Mul:         return "mul";
+        case IROp::Div:         return "div";
+        case IROp::FAdd:        return "addf";
+        case IROp::FSub:        return "subf";
+        case IROp::FMul:        return "mulf";
+        case IROp::FDiv:        return "divf";
+        case IROp::Ret:         return "ret";
+        case IROp::Label:       return "label";
+        case IROp::Jump:        return "jmp";
+        case IROp::JumpIf:      return "jnz";
+        case IROp::Call:        return "call";
+        case IROp::Param:       return "param";
+        case IROp::Eq:          return "eq";
+        case IROp::Neq:         return "neq";
+        case IROp::Less:        return "less";
+        case IROp::Leq:         return "leq";
+        case IROp::Gret:        return "gret";
+        case IROp::Geq:         return "geq";
+        case IROp::Not:         return "not";
+        case IROp::Store:       return "sto";
+        case IROp::Load:        return "lod";
+        case IROp::Mov:         return "mov";
+        case IROp::ToFloat:     return "float";
+        case IROp::ToInt:       return "int";
+        case IROp::ToBool:      return "bool";
+        default:                return "nop";
     }
 }
 
@@ -176,9 +182,19 @@ inline void printIRProgram(const IRProgram& program) {
                 case IROp::Ret: printf("%s", stringIRValue(inst.src1).c_str()); break;
                 case IROp::Const:
                 case IROp::FConst:
+                case IROp::CharConst:
                     printf("%s, %s",
                         stringIRValue(inst.dest).c_str(),
                         stringIRValue(inst.src1).c_str());
+                    break;
+                case IROp::StringConst:
+                    printf("%s, lbl %s", 
+                        stringIRValue(inst.dest).c_str(), inst.label.c_str());
+                    break;
+                case IROp::Index:
+                    printf("%s <- lbl %s[%s]",
+                        stringIRValue(inst.dest).c_str(),
+                        inst.label.c_str(), stringIRValue(inst.src1).c_str());
                     break;
                 case IROp::Store:
                     printf("%s <- %s", inst.label.c_str(), stringIRValue(inst.src1).c_str());

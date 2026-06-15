@@ -48,7 +48,8 @@ private:
 
 class CodeGen {
 public:
-    CodeGen(IRProgram& program) : program(program) {}
+    CodeGen(IRProgram& program, std::unordered_map<std::string, std::string> strLabels) 
+        : program(program), stringLabels(strLabels) {}
 
     // Entry point. Writes the full .s file to outputPath.
     void generate(const std::string& outputPath);
@@ -60,6 +61,7 @@ private:
     StackFrame frame;
 
     std::unordered_map<float, std::string> floatLabels;
+    std::unordered_map<std::string, std::string> stringLabels;
     std::vector<int> paramTempIds;
 
     void emitPreamble();
@@ -73,15 +75,16 @@ private:
     // Dispatches a single instruction.
     void emitInstruction(const IRInstruction& instr);
 
+    void emitBinop  (const IRInstruction& instr); // dest = src1 op src2
+    void emitFBinop (const IRInstruction& instr);
     void emitCall   (const IRInstruction& instr);
+    void emitCmp    (const IRInstruction& instr, const std::string& setcc);
     void emitConst  (const IRInstruction& instr); // dest = constant
     void emitFConst (const IRInstruction& instr);
-    void emitCmp    (const IRInstruction& instr, const std::string& setcc);
+    void emitIndex  (const IRInstruction& instr);
     void emitNot    (const IRInstruction& instr);
     void emitParam  (const IRInstruction& instr);
     void emitRet    (const IRInstruction& instr); // return src1
-    void emitBinop  (const IRInstruction& instr); // dest = src1 op src2
-    void emitFBinop (const IRInstruction& instr);
     void emitToFloat(const IRInstruction& instr);
     void emitToInt  (const IRInstruction& instr);
 
@@ -96,6 +99,8 @@ private:
 
     std::string floatLabel(float fval);
     void emitFloatPool();
+
+    void emitStringPool();
 };
 
 #endif

@@ -87,7 +87,10 @@ void SemanticAnalyzer::visit(LetStmt& stmt) {
         decl.init->accept(*this);
 
         if (decl.init->resolvedType != decl.type)
-            err.report(decl.name, "Initializer type does not match declared type.");
+            err.report(decl.name, 
+                "Initializer type does not match declared type: initializer is of type " 
+                + TypetoString(decl.init->resolvedType) + " and declared is "
+                + TypetoString(decl.type));
 
         Symbol sym;
         sym.name    = decl.name.lexeme;
@@ -208,6 +211,8 @@ static bool isCastCompatible(Type from, Type to) {
         { Type::Float32t, Type::Int32t   },
         { Type::Float32t, Type::Boolt    },
         { Type::Boolt,    Type::Float32t },
+        { Type::Chart,    Type::Int32t },
+        { Type::Int32t,   Type::Chart  },
     };
 
     for (auto& [f, t] : allowed)
@@ -232,11 +237,27 @@ void SemanticAnalyzer::visit(CastExpr& cast) {
     cast.resolvedType = to;
 }
 
+void SemanticAnalyzer::visit(IndexExpr& expr) {
+    expr.object->accept(*this);
+    expr.index->accept(*this);
+
+    if (expr.object->resolvedType != Type::Stringt)
+        err.report(expr.bracket, "Index operator only valid on String.");
+    if (expr.index->resolvedType != Type::Int32t)
+        err.report(expr.bracket, "String index must be i32.");
+
+    expr.resolvedType = Type::Chart;
+}
+
 void SemanticAnalyzer::visit(LiteralExpr& lit) {
     if (std::holds_alternative<int32_t>(lit.value))
         lit.resolvedType = Type::Int32t;
     else if (std::holds_alternative<bool>(lit.value))
         lit.resolvedType = Type::Boolt;
+    else if (std::holds_alternative<char>(lit.value))
+        lit.resolvedType = Type::Chart;
+    else if (std::holds_alternative<std::string>(lit.value))
+        lit.resolvedType = Type::Stringt;
     else
         lit.resolvedType = Type::Float32t;
 }

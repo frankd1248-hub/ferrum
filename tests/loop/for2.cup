@@ -1,0 +1,8 @@
+fn main() => i32 {
+    let msg : String = "Hi";
+    let sum : i32 = 0;
+    for (let i : i32 = 0; i < 2; i = i + 1) {
+        sum = sum + (i32) msg[i];
+    }
+    return sum; // expect 72 + 105 = 177
+}

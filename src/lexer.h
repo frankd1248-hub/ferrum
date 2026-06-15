@@ -66,6 +66,7 @@ private:
 
     TokenType identifierType(std::string lexeme) {
         if      (lexeme == "bool")   return TK_BOOL;
+        else if (lexeme == "char")   return TK_CHAR;
         else if (lexeme == "const")  return TK_CONST;
         else if (lexeme == "else")   return TK_ELSE;
         else if (lexeme == "f32")    return TK_F32;
@@ -76,6 +77,7 @@ private:
         else if (lexeme == "if")     return TK_IF;
         else if (lexeme == "let")    return TK_LET;
         else if (lexeme == "return") return TK_RETURN;
+        else if (lexeme == "String") return TK_STRING;
         else if (lexeme == "true")   return TK_TRUE;
         else if (lexeme == "void")   return TK_VOID;
         else if (lexeme == "while")  return TK_WHILE;
@@ -92,6 +94,9 @@ private:
     int current;
     int lineStart;
     int line;
+
+    void scanString();
+    void scanChar();
 
 };
 

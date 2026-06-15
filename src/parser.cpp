@@ -61,10 +61,26 @@ static Expr* call(Parser& p, bool canAssign) {
     return expr;
 }
 
+static Expr* charLit(Parser& p, bool canAssign) {
+    LiteralExpr* lit = new LiteralExpr();
+    lit->value = p.previous().lexeme[0];
+    return lit;
+}
+
 static Expr* floatLit(Parser& parser, bool canAssign) {
     LiteralExpr* literal = new LiteralExpr();
     literal->value = std::stof(parser.previous().lexeme);
     return literal;
+}
+
+static Expr* index(Parser& p, bool canAssign) {
+    IndexExpr* expr = new IndexExpr();
+    expr->object  = p.previousExpr();
+    expr->bracket = p.previous();
+    expr->index   = p.expression(PREC_NONE);
+
+    p.consume(TK_RIGHT_BRACKET, "Expect ']' after index.");
+    return expr;
 }
 
 static Expr* lparen(Parser& parser, bool canAssign) {
@@ -97,6 +113,12 @@ static Expr* number(Parser& parser, bool canAssign) {
     return literal;
 }
 
+static Expr* strLit(Parser& p, bool canAssign) {
+    LiteralExpr* lit = new LiteralExpr();
+    lit->value = p.previous().lexeme;
+    return lit;
+}
+
 static Expr* unary(Parser& parser, bool canAssign) {
     UnaryExpr* unary = new UnaryExpr();
 
@@ -116,6 +138,8 @@ static ParseRule rules[] = {
     { nullptr,  nullptr, PREC_NONE       }, // TK_EOF
     { lparen,   call,    PREC_CALL       }, // TK_LEFT_PAREN
     { nullptr,  nullptr, PREC_NONE       }, // TK_RIGHT_PAREN
+    { nullptr,  index,   PREC_CALL       }, // TK_LEFT_BRACKET
+    { nullptr,  nullptr, PREC_NONE       }, // TK_RIGHT_BRACKET
     { nullptr,  nullptr, PREC_NONE       }, // TK_LEFT_BRACE
     { nullptr,  nullptr, PREC_NONE       }, // TK_RIGHT_BRACE
     { nullptr,  nullptr, PREC_NONE       }, // TK_ARROW
@@ -136,10 +160,14 @@ static ParseRule rules[] = {
     { unary,    nullptr, PREC_NONE       }, // TK_BANG
     { number,   nullptr, PREC_NONE       }, // TK_NUMBER
     { floatLit, nullptr, PREC_NONE       }, // TK_FLOAT
+    { charLit,  nullptr, PREC_NONE       }, // TK_CHAR_LIT
+    { strLit,   nullptr, PREC_NONE       }, // TK_STRING_LIT
     { nullptr,  nullptr, PREC_NONE       }, // TK_I32
     { nullptr,  nullptr, PREC_NONE       }, // TK_F32
     { nullptr,  nullptr, PREC_NONE       }, // TK_VOID
     { nullptr,  nullptr, PREC_NONE       }, // TK_BOOL
+    { nullptr,  nullptr, PREC_NONE       }, // TK_CHAR
+    { nullptr,  nullptr, PREC_NONE       }, // TK_STRING
     { boolLit,  nullptr, PREC_NONE       }, // TK_TRUE
     { boolLit,  nullptr, PREC_NONE       }, // TK_FALSE
     { variable, nullptr, PREC_NONE       }, // TK_IDENTIFIER
@@ -182,21 +210,25 @@ Expr* Parser::expression(Precedence precedence) {
 }
 
 Type Parser::parseTypeKeyword() {
-    if (match(TK_BOOL))      return Type::Boolt;
-    else if (match(TK_I32))  return Type::Int32t;
-    else if (match(TK_F32))  return Type::Float32t;
-    else if (match(TK_VOID)) return Type::Voidt;
+    if      (match(TK_BOOL))   return Type::Boolt;
+    else if (match(TK_CHAR))   return Type::Chart;
+    else if (match(TK_I32))    return Type::Int32t;
+    else if (match(TK_F32))    return Type::Float32t;
+    else if (match(TK_STRING)) return Type::Stringt;
+    else if (match(TK_VOID))   return Type::Voidt;
 
     return Type::Nullt;
 }
 
 Type Parser::parseTypeKeyword_prev() {
     switch (previous().type) {
-        case TK_BOOL: return Type::Boolt;
-        case TK_I32:  return Type::Int32t;
-        case TK_F32:  return Type::Float32t;
-        case TK_VOID: return Type::Voidt;
-        default:      return Type::Nullt;
+        case TK_BOOL:   return Type::Boolt;
+        case TK_CHAR:   return Type::Chart;
+        case TK_I32:    return Type::Int32t;
+        case TK_F32:    return Type::Float32t;
+        case TK_STRING: return Type::Stringt;
+        case TK_VOID:   return Type::Voidt;
+        default:        return Type::Nullt;
     }
 }
 
