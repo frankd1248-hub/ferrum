@@ -39,6 +39,8 @@ class UnaryExpr;
 class VarExpr;
 
 class BlockStmt;
+class BreakStmt;
+class ContinueStmt;
 class ExprStmt;
 class ForStmt;
 class FuncDecl;
@@ -51,24 +53,26 @@ class WhileStmt;
 class ASTVisitor {
 public:
     virtual ~ASTVisitor() = default;
-    virtual void visit(AssignExpr&)  = 0;
-    virtual void visit(BinaryExpr&)  = 0;
-    virtual void visit(CallExpr&)    = 0;
-    virtual void visit(CastExpr&)    = 0;
-    virtual void visit(IndexExpr&)   = 0;
-    virtual void visit(LiteralExpr&) = 0;
-    virtual void visit(UnaryExpr&)   = 0;
-    virtual void visit(VarExpr&)     = 0;
+    virtual void visit(AssignExpr&)   = 0;
+    virtual void visit(BinaryExpr&)   = 0;
+    virtual void visit(CallExpr&)     = 0;
+    virtual void visit(CastExpr&)     = 0;
+    virtual void visit(IndexExpr&)    = 0;
+    virtual void visit(LiteralExpr&)  = 0;
+    virtual void visit(UnaryExpr&)    = 0;
+    virtual void visit(VarExpr&)      = 0;
 
-    virtual void visit(BlockStmt&)   = 0;
-    virtual void visit(ExprStmt&)    = 0;
-    virtual void visit(ForStmt&)     = 0;
-    virtual void visit(FuncDecl&)    = 0;
-    virtual void visit(IfStmt&)      = 0;
-    virtual void visit(NativeStmt&)  = 0;
-    virtual void visit(LetStmt&)     = 0;
-    virtual void visit(ReturnStmt&)  = 0;
-    virtual void visit(WhileStmt&)   = 0;
+    virtual void visit(BlockStmt&)    = 0;
+    virtual void visit(BreakStmt&)    = 0;
+    virtual void visit(ContinueStmt&) = 0;
+    virtual void visit(ExprStmt&)     = 0;
+    virtual void visit(ForStmt&)      = 0;
+    virtual void visit(FuncDecl&)     = 0;
+    virtual void visit(IfStmt&)       = 0;
+    virtual void visit(NativeStmt&)   = 0;
+    virtual void visit(LetStmt&)      = 0;
+    virtual void visit(ReturnStmt&)   = 0;
+    virtual void visit(WhileStmt&)    = 0;
 };
 
 class ASTNode {
@@ -173,6 +177,24 @@ public:
     }
 
     std::vector<Stmt*> stmts;
+};
+
+class BreakStmt : public Stmt {
+public:
+    void accept(ASTVisitor& v) override { 
+        v.visit(*this); 
+    }
+
+    Token token;
+};
+
+class ContinueStmt : public Stmt {
+public:
+    void accept(ASTVisitor& v) override { 
+        v.visit(*this); 
+    }
+
+    Token token;
 };
 
 class ExprStmt : public Stmt {

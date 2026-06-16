@@ -35,6 +35,14 @@ void IRGen::visit(BlockStmt& block) {
     }
 }
 
+void IRGen::visit(BreakStmt& stmt) {
+    emit({ IROp::Jump, {}, {}, {}, loopStack.back().endLabel });
+}
+
+void IRGen::visit(ContinueStmt& stmt) {
+    emit({ IROp::Jump, {}, {}, {}, loopStack.back().condLabel });
+}
+
 void IRGen::visit(ExprStmt& stmt) {
     stmt.expression->accept(*this);
 }
@@ -55,13 +63,15 @@ void IRGen::visit(ExprStmt& stmt) {
  */
 void IRGen::visit(ForStmt& stmt) {
     std::string condLabel = newLabel("cond");
+    std::string incrLabel = newLabel("incr");
     std::string bodyLabel = newLabel("body");
     std::string endLabel  = newLabel("end");
 
     if (stmt.init) stmt.init->accept(*this);
 
-    emit({ IROp::Label, {}, {}, {}, condLabel });
+    loopStack.push_back({ incrLabel, endLabel });
 
+    emit({ IROp::Label, {}, {}, {}, condLabel });
     if (stmt.condition) {
         stmt.condition->accept(*this);
         emit({ IROp::JumpIf, {}, lastValue, {}, bodyLabel });
@@ -71,10 +81,13 @@ void IRGen::visit(ForStmt& stmt) {
     emit({ IROp::Label, {}, {}, {}, bodyLabel });
     stmt.body->accept(*this);
 
+    emit({ IROp::Label, {}, {}, {}, incrLabel });
     if (stmt.increment) stmt.increment->accept(*this);
     emit({ IROp::Jump, {}, {}, {}, condLabel });
 
     emit({ IROp::Label, {}, {}, {}, endLabel });
+
+    loopStack.pop_back();
 }
 
 void IRGen::visit(FuncDecl& fn) {
@@ -168,8 +181,9 @@ void IRGen::visit(WhileStmt& stmt) {
     std::string bodyLabel = newLabel("body");
     std::string endLabel  = newLabel("end");
 
-    emit({ IROp::Label, {}, {}, {}, condLabel });
+    loopStack.push_back({ condLabel, endLabel });
 
+    emit({ IROp::Label, {}, {}, {}, condLabel });
     stmt.condition->accept(*this);
     emit({ IROp::JumpIf, {}, lastValue, {}, bodyLabel });
     emit({ IROp::Jump,   {}, {}, {},         endLabel  });
@@ -179,6 +193,8 @@ void IRGen::visit(WhileStmt& stmt) {
     emit({ IROp::Jump,  {}, {}, {}, condLabel });
 
     emit({ IROp::Label, {}, {}, {}, endLabel });
+
+    loopStack.pop_back();
 }
 
 void IRGen::visit(AssignExpr& expr) {

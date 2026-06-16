@@ -95,15 +95,16 @@ private:
     
     Expr* last = nullptr;
 
-    BlockStmt*  block();
-    ForStmt*    forStatement();
-    FuncDecl*   fnDeclaration();
-    IfStmt*     ifStatement();
-    NativeStmt* nativeStatement();
-    LetStmt*    letStatement(bool consumeSemicolon = true);
-    ReturnStmt* returnStatement();
-    WhileStmt*  whileStatement();
-
+    BlockStmt*    block();
+    BreakStmt*    breakStatement();
+    ContinueStmt* continueStatement();
+    ForStmt*      forStatement();
+    FuncDecl*     fnDeclaration();
+    IfStmt*       ifStatement();
+    NativeStmt*   nativeStatement();
+    LetStmt*      letStatement(bool consumeSemicolon = true);
+    ReturnStmt*   returnStatement();
+    WhileStmt*    whileStatement();
 };
 
 #endif

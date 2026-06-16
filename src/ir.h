@@ -5,11 +5,11 @@
 #include "ast.h"
 
 struct IRValue {
-    enum class Kind { Temp, IntConst, FloatConst } kind;
-    int         id;
-    Type        type  = Type::Nullt;
-    std::string label; // for StringConst args
-    union { int ival; float fval; };
+    enum class Kind { None, Temp, IntConst, FloatConst } kind = Kind::None;
+    int   id   = -1;
+    Type  type = Type::Nullt;
+    std::string label;
+    union { int ival = 0; float fval; };
 };
 
 enum class IROp {

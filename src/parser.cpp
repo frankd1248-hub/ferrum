@@ -173,6 +173,8 @@ static ParseRule rules[] = {
     { variable, nullptr, PREC_NONE       }, // TK_IDENTIFIER
     { nullptr,  nullptr, PREC_NONE       }, // TK_LET
     { nullptr,  nullptr, PREC_NONE       }, // TK_CONST
+    { nullptr,  nullptr, PREC_NONE       }, // TK_BREAK
+    { nullptr,  nullptr, PREC_NONE       }, // TK_CONTINUE
     { nullptr,  nullptr, PREC_NONE       }, // TK_RETURN
     { nullptr,  nullptr, PREC_NONE       }, // TK_FN
     { nullptr,  nullptr, PREC_NONE       }, // TK_IF
@@ -243,6 +245,20 @@ BlockStmt* Parser::block() {
 
     consume(TK_RIGHT_BRACE, "Expected ending brace for block.");
     return block_;
+}
+
+BreakStmt* Parser::breakStatement() {
+    BreakStmt* stmt = new BreakStmt();
+    stmt->token = previous();
+    consume(TK_SEMICOLON, "Expect ';' after 'break'.");
+    return stmt;
+}
+
+ContinueStmt* Parser::continueStatement() {
+    ContinueStmt* stmt = new ContinueStmt();
+    stmt->token = previous();
+    consume(TK_SEMICOLON, "Expect ';' after 'continue'.");
+    return stmt;
 }
 
 ForStmt* Parser::forStatement() {
@@ -387,6 +403,8 @@ Stmt* Parser::statement() {
     if (isAtEnd()) return nullptr;
     if (check(TK_RIGHT_BRACE)) return nullptr;
 
+    if (match(TK_BREAK))        return breakStatement();
+    if (match(TK_CONTINUE))     return continueStatement();
     if (match(TK_FOR))          return forStatement();
     if (match(TK_IF))           return ifStatement();
     if (match(TK_LET))          return letStatement();

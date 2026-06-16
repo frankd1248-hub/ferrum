@@ -39,6 +39,8 @@ std::unordered_map<TokenType, std::string> tokenTypeLookup = {
     { TK_IDENTIFIER,    "TK_IDENTIFIER" },
     { TK_LET,           "TK_LET" },
     { TK_CONST,         "TK_CONST" },
+    { TK_BREAK,         "TK_BREAK" },
+    { TK_CONTINUE,      "TK_CONTINUE" },
     { TK_RETURN,        "TK_RETURN" },
     { TK_FN,            "TK_FN" },
     { TK_IF,            "TK_IF" },

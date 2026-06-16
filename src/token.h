@@ -33,6 +33,8 @@ enum TokenType {
 
     TK_LET, TK_CONST,
 
+    TK_BREAK, TK_CONTINUE,
+
     TK_RETURN, TK_FN, TK_IF, TK_ELSE, TK_FOR, TK_WHILE, TK_NATIVE
 };
 

@@ -6,29 +6,36 @@
 #include "ir.h"
 #include "symbol_table.h"
 
+struct LoopLabels {
+    std::string condLabel; // continue jumps here
+    std::string endLabel;  // break jumps here
+};
+
 class IRGen : public ASTVisitor {
 public:
     IRGen(SymbolTable* table) : table(table) { }
     IRProgram emit(ASTProgram* program); // entry point
 
-    void visit(BlockStmt&)   override;
-    void visit(ExprStmt&)    override;
-    void visit(ForStmt&)     override;
-    void visit(FuncDecl&)    override;
-    void visit(IfStmt&)      override;
-    void visit(LetStmt&)     override;
-    void visit(NativeStmt&)  override;
-    void visit(ReturnStmt&)  override;
-    void visit(WhileStmt&)   override;
+    void visit(BlockStmt&)    override;
+    void visit(BreakStmt&)    override;
+    void visit(ContinueStmt&) override;
+    void visit(ExprStmt&)     override;
+    void visit(ForStmt&)      override;
+    void visit(FuncDecl&)     override;
+    void visit(IfStmt&)       override;
+    void visit(LetStmt&)      override;
+    void visit(NativeStmt&)   override;
+    void visit(ReturnStmt&)   override;
+    void visit(WhileStmt&)    override;
 
-    void visit(AssignExpr&)  override;
-    void visit(BinaryExpr&)  override;
-    void visit(CallExpr&)    override;
-    void visit(CastExpr&)    override;
-    void visit(IndexExpr&)   override;
-    void visit(LiteralExpr&) override;
-    void visit(UnaryExpr&)   override;
-    void visit(VarExpr&)     override;
+    void visit(AssignExpr&)   override;
+    void visit(BinaryExpr&)   override;
+    void visit(CallExpr&)     override;
+    void visit(CastExpr&)     override;
+    void visit(IndexExpr&)    override;
+    void visit(LiteralExpr&)  override;
+    void visit(UnaryExpr&)    override;
+    void visit(VarExpr&)      override;
 
     std::unordered_map<std::string, std::string> getStrLabels() {
         return stringLabels;
@@ -47,6 +54,7 @@ private:
 
     std::unordered_map<std::string, int> varTemps;
     std::unordered_map<std::string, std::string> stringLabels;
+    std::vector<LoopLabels> loopStack = {};
 
     IRValue newTemp();  // returns IRValue{Temp, tempCount_++}
     std::string newLabel(const std::string& prefix);

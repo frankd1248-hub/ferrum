@@ -41,6 +41,16 @@ void SemanticAnalyzer::visit(BlockStmt& block) {
     symbols.popScope();
 }
 
+void SemanticAnalyzer::visit(BreakStmt& stmt) {
+    if (loopDepth == 0)
+        err.report(stmt.token, "'break' used outside of a loop.");
+}
+
+void SemanticAnalyzer::visit(ContinueStmt& stmt) {
+    if (loopDepth == 0)
+        err.report(stmt.token, "'continue' used outside of a loop.");
+}
+
 void SemanticAnalyzer::visit(ExprStmt& expr) {
     expr.expression->accept(*this);
 }
@@ -60,7 +70,9 @@ void SemanticAnalyzer::visit(ForStmt& stmt) {
     if (stmt.increment)
         stmt.increment->accept(*this);
 
+    loopDepth++;
     stmt.body->accept(*this);
+    loopDepth--;
 
     symbols.popScope();
 }
@@ -130,7 +142,10 @@ void SemanticAnalyzer::visit(WhileStmt& stmt) {
     stmt.condition->accept(*this);
     if (stmt.condition->resolvedType != Type::Boolt)
         err.report(stmt.start, "While condition must be bool.");
+
+    loopDepth++;
     stmt.body->accept(*this);
+    loopDepth--;
 }
 
 void SemanticAnalyzer::visit(AssignExpr& expr) {

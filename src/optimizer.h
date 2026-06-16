@@ -6,17 +6,22 @@
 
 class Optimizer {
 public:
-    Optimizer(IRProgram& program) : program_(program) {}
+    Optimizer(IRProgram& program) : program(program) {}
     void optimize();
 
 private:
-    IRProgram& program_;
+    IRProgram& program;
 
     void optimizeFunction(IRFunction& fn);
 
     void constantFolding(std::vector<IRInstruction>& body);
     void deadCodeElimination(std::vector<IRInstruction>& body);
     void copyPropagation(std::vector<IRInstruction>& body);
+    void deadBranchElimination(std::vector<IRInstruction>& body);
+    void unreachableCodeElimination(std::vector<IRInstruction>& body);
+    void emptyLabelElimination(std::vector<IRInstruction>& body);
+    void strengthReduction(std::vector<IRInstruction>& body);
+    void redundantJumpElimination(std::vector<IRInstruction>& body);
 };
 
 #endif

@@ -201,12 +201,12 @@ void CodeGen::emitInstruction(const IRInstruction& instr) {
 
 void CodeGen::emitBinop(const IRInstruction& instr) {
     if (instr.src1.kind == IRValue::Kind::Temp)
-        emit("mov\trax, " + stackRef(instr.src1.id));
+        emit("mov\trax, " + resolve(instr.src1));
     else if (instr.src1.kind == IRValue::Kind::IntConst)
         emit("mov\trax, " + std::to_string(instr.src1.ival));
 
     if (instr.src2.kind == IRValue::Kind::Temp)
-        emit("mov\trbx, " + stackRef(instr.src2.id));
+        emit("mov\trbx, " + resolve(instr.src2));
     else if (instr.src2.kind == IRValue::Kind::IntConst)
         emit("mov\trbx, " + std::to_string(instr.src2.ival));
 
@@ -226,9 +226,9 @@ void CodeGen::emitBinop(const IRInstruction& instr) {
 }
 
 void CodeGen::emitFBinop(const IRInstruction& instr) {
-    emit("mov\trax, " + stackRef(instr.src1.id));
+    emit("mov\trax, " + resolve(instr.src1));
     emit("movq\txmm0, rax");
-    emit("mov\trax, " + stackRef(instr.src2.id));
+    emit("mov\trax, " + resolve(instr.src2));
     emit("movq\txmm1, rax");
 
     switch (instr.op) {
@@ -299,8 +299,8 @@ void CodeGen::emitFConst(const IRInstruction& instr) {
 }
 
 void CodeGen::emitIndex(const IRInstruction& instr) {
-    emit("mov\trax, " + stackRef(instr.src1.id));
-    emit("mov\trcx, " + stackRef(instr.src2.id));
+    emit("mov\trax, " + resolve(instr.src1));
+    emit("mov\trcx, " + resolve(instr.src2));
     emit("movzx\teax, BYTE PTR [rax + rcx]");
     emit("mov\t" + stackRef(instr.dest.id) + ", rax");
 }
@@ -343,23 +343,30 @@ void CodeGen::emitParam(const IRInstruction& instr) {
 
 void CodeGen::emitRet(const IRInstruction& instr) {
     if (currentFunc->returnType == Type::Float32t) {
-        emit("mov\trax, " + stackRef(instr.src1.id));
+        if (instr.src1.kind == IRValue::Kind::Temp) {
+            emit("mov\trax, " + resolve(instr.src1));
+        } else {
+            std::string lbl = floatLabel(instr.src1.fval);
+            emit("movss\txmm0, DWORD PTR [" + lbl + " + rip]");
+            emitEpilogue();
+            return;
+        }
         emit("movq\txmm0, rax");
     } else {
-        emit("mov\trax, " + stackRef(instr.src1.id));
+        emit("mov\trax, " + resolve(instr.src1));
     }
     emitEpilogue();
 }
 
 void CodeGen::emitToFloat(const IRInstruction& instr) {
     // i32 → f32
-    emit("mov\teax, DWORD PTR " + stackRef(instr.src1.id));
+    emit("mov\teax, DWORD PTR " + resolve(instr.src1));
     emit("cvtsi2ss\txmm0, eax");
     emit("movss\t" + fStackRef(instr.dest.id) + ", xmm0");
 }
 
 void CodeGen::emitToInt(const IRInstruction& instr) {
-    emit("mov\trax, " + stackRef(instr.src1.id));
+    emit("mov\trax, " + resolve(instr.src1));
     emit("movq\txmm0, rax");
     emit("cvttss2si\teax, xmm0");
     emit("mov\t" + stackRef(instr.dest.id) + ", rax");

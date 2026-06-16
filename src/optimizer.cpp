@@ -3,7 +3,7 @@
 #include <unordered_set>
 
 void Optimizer::optimize() {
-    for (IRFunction& fn : program_.functions)
+    for (IRFunction& fn : program.functions)
         optimizeFunction(fn);
 }
 
@@ -11,7 +11,17 @@ void Optimizer::optimizeFunction(IRFunction& fn) {
     constantFolding(fn.body);
     copyPropagation(fn.body);
     deadCodeElimination(fn.body);
+    deadBranchElimination(fn.body);
+    emptyLabelElimination(fn.body);
+    redundantJumpElimination(fn.body);
+    emptyLabelElimination(fn.body);
+    unreachableCodeElimination(fn.body);
     copyPropagation(fn.body);
+    deadCodeElimination(fn.body);
+    emptyLabelElimination(fn.body);
+    redundantJumpElimination(fn.body);
+    emptyLabelElimination(fn.body);
+    unreachableCodeElimination(fn.body);
     deadCodeElimination(fn.body);
 }
 
@@ -141,6 +151,7 @@ void Optimizer::deadCodeElimination(std::vector<IRInstruction>& body) {
 
 void Optimizer::copyPropagation(std::vector<IRInstruction>& body) {
     std::unordered_map<int, IRValue> aliases;
+    std::unordered_map<int, IRValue> constants;
 
     std::unordered_map<int, int> defCount;
     for (const IRInstruction& instr : body) {
@@ -154,14 +165,20 @@ void Optimizer::copyPropagation(std::vector<IRInstruction>& body) {
             defCount[instr.dest.id] == 1) {
             aliases[instr.dest.id] = instr.src1;
         }
+        // ← track Const and FConst dests as known constants
+        if ((instr.op == IROp::Const || instr.op == IROp::FConst) &&
+            instr.dest.kind == IRValue::Kind::Temp &&
+            defCount[instr.dest.id] == 1) {
+            constants[instr.dest.id] = instr.src1;
+        }
     }
 
     auto resolve = [&](IRValue val) -> IRValue {
-        // chase the alias chain: t2 -> t1 -> t0
-        int limit = 32; // prevent infinite loops from cycles
-        while (val.kind == IRValue::Kind::Temp &&
-               aliases.count(val.id) && limit-- > 0) {
-            val = aliases[val.id];
+        int limit = 32;
+        while (val.kind == IRValue::Kind::Temp && limit-- > 0) {
+            if (aliases.count(val.id))      { val = aliases[val.id]; continue; }
+            if (constants.count(val.id))    { val = constants[val.id]; break; }
+            break;
         }
         return val;
     };
@@ -170,4 +187,118 @@ void Optimizer::copyPropagation(std::vector<IRInstruction>& body) {
         instr.src1 = resolve(instr.src1);
         instr.src2 = resolve(instr.src2);
     }
+}
+
+void Optimizer::deadBranchElimination(std::vector<IRInstruction>& body) {
+    std::unordered_map<std::string, int> labelIndex;
+    for (int i = 0; i < (int)body.size(); i++)
+        if (body[i].op == IROp::Label)
+            labelIndex[body[i].label] = i;
+
+    std::vector<IRInstruction> result;
+    for (int i = 0; i < (int)body.size(); i++) {
+        const IRInstruction& instr = body[i];
+
+        if (instr.op == IROp::JumpIf &&
+            instr.src1.kind == IRValue::Kind::IntConst) {
+            if (instr.src1.ival != 0) {
+                result.push_back({ IROp::Jump, {}, {}, {}, instr.label });
+            }
+            continue;
+        }
+
+        result.push_back(instr);
+    }
+
+    body = std::move(result);
+}
+
+void Optimizer::unreachableCodeElimination(std::vector<IRInstruction>& body) {
+    std::vector<IRInstruction> result;
+    bool reachable = true;
+
+    for (const IRInstruction& instr : body) {
+        if (instr.op == IROp::Label) {
+            reachable = true;
+        }
+
+        if (reachable)
+            result.push_back(instr);
+
+        if (instr.op == IROp::Jump ||
+            instr.op == IROp::Ret) {
+            reachable = false;
+        }
+    }
+
+    body = std::move(result);
+}
+
+void Optimizer::emptyLabelElimination(std::vector<IRInstruction>& body) {
+    std::unordered_set<std::string> referenced;
+    for (const IRInstruction& instr : body)
+        if (instr.op == IROp::Jump || instr.op == IROp::JumpIf)
+            referenced.insert(instr.label);
+
+    std::vector<IRInstruction> result;
+    for (const IRInstruction& instr : body) {
+        if (instr.op == IROp::Label && !referenced.count(instr.label))
+            continue;
+        result.push_back(instr);
+    }
+
+    body = std::move(result);
+}
+
+void Optimizer::strengthReduction(std::vector<IRInstruction>& body) {
+    for (IRInstruction& instr : body) {
+        // x * 1 → x 
+        // x * 0 → 0 
+        // x + 0 → x
+        // x - 0 → x
+        if (instr.op == IROp::Mul) {
+            IRValue lhs = instr.src1, rhs = instr.src2;
+            if (rhs.kind == IRValue::Kind::IntConst) {
+                if (rhs.ival == 1) {
+                    instr.op   = IROp::Mov;
+                    instr.src1 = lhs;
+                    instr.src2 = {};
+                } else if (rhs.ival == 0) {
+                    instr.op   = IROp::Const;
+                    instr.src1 = IRValue { .kind=IRValue::Kind::IntConst, .id=-1, .ival=0 };
+                    instr.src2 = {};
+                }
+            }
+            if (lhs.kind == IRValue::Kind::IntConst && lhs.ival == 0) {
+                instr.op   = IROp::Const;
+                instr.src1 = IRValue { .kind=IRValue::Kind::IntConst, .id=-1, .ival=0 };
+                instr.src2 = {};
+            }
+        }
+        if (instr.op == IROp::Add || instr.op == IROp::Sub) {
+            IRValue rhs = instr.src2;
+            if (rhs.kind == IRValue::Kind::IntConst && rhs.ival == 0) {
+                instr.op   = IROp::Mov;
+                instr.src2 = {};
+            }
+        }
+    }
+}
+
+void Optimizer::redundantJumpElimination(std::vector<IRInstruction>& body) {
+    std::vector<IRInstruction> result;
+
+    for (int i = 0; i < (int)body.size(); i++) {
+        const IRInstruction& instr = body[i];
+
+        if (instr.op == IROp::Jump && i + 1 < (int)body.size()) {
+            const IRInstruction& next = body[i + 1];
+            if (next.op == IROp::Label && next.label == instr.label)
+                continue;
+        }
+
+        result.push_back(instr);
+    }
+
+    body = std::move(result);
 }
