@@ -17,10 +17,11 @@ std::vector<LiveInterval> RegAlloc::computeIntervals(const IRFunction& fn) {
     for (int i = 0; i < (int)fn.body.size(); i++) {
         const IRInstruction& instr = fn.body[i];
 
-        if (instr.op == IROp::ArrayStore) {
-            touch(instr.dest, i, false); // base ptr — use
-            touch(instr.src1, i, false); // index   — use
-            touch(instr.src2, i, false); // value   — use
+        if (instr.op == IROp::ArrayStore ||
+            instr.op == IROp::StructStore) {
+            touch(instr.dest, i, false); // base — use
+            touch(instr.src1, i, false);
+            touch(instr.src2, i, false);
         } else {
             touch(instr.dest, i, true);  // normal definition
             touch(instr.src1, i, false);

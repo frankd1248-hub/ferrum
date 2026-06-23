@@ -51,6 +51,9 @@ enum class IROp {
                   // dest = base ptr, src1 = index, src2 = value
     ArrayLoad,    // dest = MEM[src1 + src2 * 8]
                   // src1 = base ptr, src2 = index 
+    StructAlloc,
+    StructStore,
+    StructLoad,
 };
 
 struct IRInstruction {
@@ -121,6 +124,9 @@ inline std::string getOpString(IROp op) {
         case IROp::ArrayAlloc:  return "alloca";
         case IROp::ArrayStore:  return "stoa";
         case IROp::ArrayLoad:   return "loda";
+        case IROp::StructAlloc: return "allocs";
+        case IROp::StructStore: return "stos";
+        case IROp::StructLoad:  return "stol";
         default:                return "nop";
     }
 }
@@ -222,16 +228,19 @@ inline void printIRProgram(const IRProgram& program) {
                         stringIRValue(inst.src1).c_str());
                     break;
                 case IROp::ArrayAlloc:
+                case IROp::StructAlloc:
                     printf("%s <- ptr[%d]",
                         stringIRValue(inst.dest).c_str(), inst.src1.ival);
                     break;
                 case IROp::ArrayStore:
+                case IROp::StructStore:
                     printf("%s[%s] <- %s",
                         stringIRValue(inst.dest).c_str(),
                         stringIRValue(inst.src1).c_str(),
                         stringIRValue(inst.src2).c_str());
                     break;
                 case IROp::ArrayLoad:
+                case IROp::StructLoad:
                     printf("%s <- %s[%s]",
                         stringIRValue(inst.dest).c_str(),
                         stringIRValue(inst.src1).c_str(),

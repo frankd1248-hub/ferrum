@@ -74,8 +74,15 @@ public:
 
     void consume(TokenType type, const std::string& msg) {
         if (!match(type)) {
-            err.report(peek(), msg);
+            error(peek(), msg);
         }
+    }
+
+    void error(const Token& token, const std::string& msg) {
+        if (panicMode) return;
+        panicMode = true;
+        hadError  = true;
+        err.report(token, msg);
     }
 
     Expr* expression(Precedence precedence);
@@ -87,6 +94,9 @@ public:
     std::pair<Type, ArrayType> parseTypeAnnotation();
 
     ErrorReporter& err;
+
+    bool panicMode = false;
+    bool hadError = false;
 
 private:
     std::vector<Token> tokens;
@@ -105,8 +115,13 @@ private:
     IfStmt*       ifStatement();
     NativeStmt*   nativeStatement();
     LetStmt*      letStatement(bool consumeSemicolon = true);
+    StructDecl*   structDeclaration();
     ReturnStmt*   returnStatement();
     WhileStmt*    whileStatement();
+
+    StructLiteral* structLiteralExpr(const std::string& name);
+
+    void synchronize();
 };
 
 #endif

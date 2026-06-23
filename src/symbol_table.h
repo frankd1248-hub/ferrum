@@ -9,8 +9,9 @@ struct Symbol {
     std::string name;
     Type        type;
     ArrayType   arrayType;
-    bool        isFunction = false;
-    bool        isConst    = false;
+    std::string structName;
+    bool        isFunction  = false;
+    bool        isConst     = false;
     std::vector<Type> paramTypes;
     Token       declToken;
 };

@@ -1,6 +1,15 @@
 #include "semantic.h"
 
 void SemanticAnalyzer::analyze(ASTProgram& program) {
+
+    for (StructDecl* s : program.structs) {
+        StructDef def;
+        def.name = s->name.lexeme;
+        for (auto& f : s->fields)
+            def.fields.push_back(f);
+        registry[def.name] = def;
+    }
+
     symbols.pushScope();
 
     for (FuncDecl* fn : program.functions) {
@@ -86,6 +95,7 @@ void SemanticAnalyzer::visit(FuncDecl& fn) {
         sym.name      = param.name.lexeme;
         sym.type      = param.type;
         sym.declToken = param.name;
+        sym.structName = param.structName;
         symbols.define(sym);
     }
 
@@ -111,6 +121,11 @@ void SemanticAnalyzer::visit(NativeStmt& stmt) {
 
 void SemanticAnalyzer::visit(LetStmt& stmt) {
     for (auto& decl : stmt.declarators) {
+        if (decl.type == Type::Structt) {
+            if (!registry.count(decl.structName))
+                err.report(decl.name, "Unknown struct type '" + decl.structName + "'.");
+        }
+
         decl.init->accept(*this);  // resolve init type first
 
         if (decl.inferred) {
@@ -142,6 +157,7 @@ void SemanticAnalyzer::visit(LetStmt& stmt) {
         sym.name      = decl.name.lexeme;
         sym.type      = decl.type;
         sym.arrayType = decl.arrayType;
+        sym.structName = decl.structName;
         sym.isConst   = decl.isConst;
         sym.declToken = decl.name;
         if (!symbols.define(sym))
@@ -315,18 +331,64 @@ void SemanticAnalyzer::visit(CastExpr& cast) {
     cast.resolvedType = to;
 }
 
+std::string SemanticAnalyzer::getStructName(Expr* expr) {
+    if (auto* var = dynamic_cast<VarExpr*>(expr)) {
+        Symbol* sym = symbols.lookup(var->name.lexeme);
+        if (sym) return sym->structName;
+    }
+    return "";
+}
+
 void SemanticAnalyzer::visit(FieldExpr& expr) {
     expr.object->accept(*this);
 
-    if (expr.field.lexeme == "len") {
+    if (expr.object->resolvedType == Type::Structt) {
+        // look up struct name from the VarExpr
+        std::string sname = getStructName(expr.object);
+        if (!registry.count(sname)) {
+            err.report(expr.field, "Unknown struct.");
+            expr.resolvedType = Type::Nullt;
+            return;
+        }
+        const StructDef& def = registry[sname];
+        for (const FieldDef& f : def.fields) {
+            if (f.name == expr.field.lexeme) {
+                expr.resolvedType = f.type;
+                expr.structName   = sname;
+                return;
+            }
+        }
+        err.report(expr.field, "Unknown field '" + expr.field.lexeme + "'.");
+
+    } else if (expr.field.lexeme == "len") {
         if (expr.object->resolvedType != Type::Arrayt &&
             expr.object->resolvedType != Type::Stringt)
             err.report(expr.field, "'len' only valid on arrays and Strings.");
         expr.resolvedType = Type::Int32t;
     } else {
-        err.report(expr.field, "Unknown field '" + expr.field.lexeme + "'.");
-        expr.resolvedType = Type::Nullt;
+        err.report(expr.field, "Field access only valid on structs.");
     }
+}
+
+void SemanticAnalyzer::visit(FieldAssignExpr& expr) {
+    expr.object->accept(*this);
+    expr.value->accept(*this);
+
+    if (expr.object->resolvedType != Type::Structt) {
+        err.report(expr.field, "Field assignment only valid on structs.");
+        return;
+    }
+    std::string sname = getStructName(expr.object);
+    const StructDef& def = registry.at(sname);
+    for (const FieldDef& f : def.fields) {
+        if (f.name == expr.field.lexeme) {
+            if (expr.value->resolvedType != f.type)
+                err.report(expr.field, "Field type mismatch in assignment.");
+            expr.resolvedType = f.type;
+            return;
+        }
+    }
+    err.report(expr.field, "Unknown field '" + expr.field.lexeme + "'.");
 }
 
 void SemanticAnalyzer::visit(IndexExpr& expr) {
@@ -378,6 +440,30 @@ void SemanticAnalyzer::visit(LiteralExpr& lit) {
         lit.resolvedType = Type::Stringt;
     else
         lit.resolvedType = Type::Float32t;
+}
+
+void SemanticAnalyzer::visit(StructLiteral& expr) {
+    if (!registry.count(expr.structName)) {
+        err.report(expr.brace, "Unknown struct '" + expr.structName + "'.");
+        expr.resolvedType = Type::Nullt;
+        return;
+    }
+    const StructDef& def = registry[expr.structName];
+
+    if (expr.fields.size() != def.fields.size()) {
+        err.report(expr.brace, "Wrong number of fields for struct '" +
+                   expr.structName + "'.");
+    }
+
+    for (size_t i = 0; i < expr.fields.size(); i++) {
+        expr.fields[i]->accept(*this);
+        if (i < def.fields.size() &&
+            expr.fields[i]->resolvedType != def.fields[i].type)
+            err.report(expr.brace, "Field '" + def.fields[i].name +
+                       "' type mismatch.");
+    }
+
+    expr.resolvedType = Type::Structt;
 }
 
 void SemanticAnalyzer::visit(UnaryExpr& unary) {

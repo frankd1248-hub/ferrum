@@ -35,7 +35,8 @@ enum TokenType {
 
     TK_BREAK, TK_CONTINUE,
 
-    TK_RETURN, TK_FN, TK_IF, TK_ELSE, TK_FOR, TK_WHILE, TK_NATIVE
+    TK_RETURN, TK_FN, TK_IF, TK_ELSE, TK_FOR, TK_WHILE, TK_NATIVE,
+    TK_STRUCT,
 };
 
 struct Token {

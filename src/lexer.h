@@ -82,6 +82,7 @@ private:
         else if (lexeme == "native")   return TK_NATIVE;
         else if (lexeme == "return")   return TK_RETURN;
         else if (lexeme == "String")   return TK_STRING;
+        else if (lexeme == "struct")   return TK_STRUCT;
         else if (lexeme == "true")     return TK_TRUE;
         else if (lexeme == "void")     return TK_VOID;
         else if (lexeme == "while")    return TK_WHILE;

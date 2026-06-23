@@ -45,20 +45,22 @@ int main(int argc, char** argv) {
 
     Parser parser(tokens, err);
     ASTProgram ast = parser.parse();
-    if (err.errored()) {
-        cerr << "Parser error.\n";
-        exit(1);
+
+    if (parser.hadError) {
+        std::cerr << "Parse errors found. Aborting.\n";
+        return 1;
     }
     
     SymbolTable symtab;
-    SemanticAnalyzer sema(symtab, err);
+    StructRegistry reg;
+    SemanticAnalyzer sema(symtab, err, reg);
     sema.analyze(ast);
     if (err.errored()) {
         cerr << "Semantic error.\n";
         exit(1);
     }
 
-    IRGen irgen(&symtab);
+    IRGen irgen(&symtab, &reg);
     IRProgram ir = irgen.emit(&ast);
     auto strlabels = irgen.getStrLabels();
 

@@ -14,6 +14,7 @@ enum class Type {
     Float32t,
     Chart,
     Stringt,
+    Structt,
     Voidt,
     Nullt,
 };
@@ -22,6 +23,28 @@ struct ArrayType {
     Type elementType = Type::Nullt;
     int  size        = 0;
 };
+
+struct FieldDef {
+    std::string name;
+    Type        type;
+    ArrayType   arrayType;  // if field is an array
+    std::string structName; // if field is itself a struct
+};
+
+struct StructDef {
+    std::string            name;
+    std::vector<FieldDef>  fields;
+
+    int offsetOf(const std::string& fieldName) const {
+        for (int i = 0; i < (int)fields.size(); i++)
+            if (fields[i].name == fieldName) return i * 8;
+        return -1;
+    }
+
+    int size() const { return (int)fields.size() * 8; }
+};
+
+using StructRegistry = std::unordered_map<std::string, StructDef>;
 
 inline std::string TypetoString(Type t) {
     switch(t) {
@@ -32,6 +55,7 @@ inline std::string TypetoString(Type t) {
         case Type::Int64t:   return "i64";
         case Type::Float32t: return "f32";
         case Type::Stringt:  return "String";
+        case Type::Structt:  return "struct";
         case Type::Voidt:    return "void";
         case Type::Nullt:    return "null";
         default: return "?";
@@ -44,9 +68,11 @@ class BinaryExpr;
 class CallExpr;
 class CastExpr;
 class FieldExpr;
+class FieldAssignExpr;
 class IndexExpr;
 class IndexAssignExpr;
 class LiteralExpr;
+class StructLiteral;
 class UnaryExpr;
 class VarExpr;
 
@@ -71,9 +97,11 @@ public:
     virtual void visit(CallExpr&)     = 0;
     virtual void visit(CastExpr&)     = 0;
     virtual void visit(FieldExpr&)    = 0;
+    virtual void visit(FieldAssignExpr&) = 0;
     virtual void visit(IndexExpr&)    = 0;
     virtual void visit(IndexAssignExpr&) = 0;
     virtual void visit(LiteralExpr&)  = 0;
+    virtual void visit(StructLiteral&)= 0;
     virtual void visit(UnaryExpr&)    = 0;
     virtual void visit(VarExpr&)      = 0;
 
@@ -161,6 +189,16 @@ public:
 
     Expr*  object;
     Token  field;
+    std::string structName;
+};
+
+class FieldAssignExpr : public Expr {
+public:
+    void accept(ASTVisitor& v) override { v.visit(*this); }
+
+    Expr*  object;
+    Token  field;
+    Expr*  value;
 };
 
 class IndexExpr : public Expr {
@@ -194,6 +232,17 @@ public:
     }
 
     std::variant<int32_t, int64_t, _Float32, bool, char, std::string> value;
+};
+
+class StructLiteral : public Expr {
+public:
+    void accept(ASTVisitor& v) override { 
+        v.visit(*this); 
+    }
+
+    std::vector<Expr*> fields;
+    Token              brace;
+    std::string        structName;
 };
 
 class UnaryExpr : public Expr {
@@ -259,6 +308,7 @@ struct VarDeclarator {
     Token      name;
     Type       type      = Type::Nullt;
     ArrayType  arrayType;
+    std::string structName;
     bool       isConst   = false;
     bool       inferred  = false;
     Expr*      init      = nullptr;
@@ -278,9 +328,10 @@ public:
 };
 
 struct Param {
-    Token     name;
-    Type      type;
-    ArrayType arrayType;
+    Token       name;
+    Type        type;
+    ArrayType   arrayType;
+    std::string structName;
 };
 
 class FuncDecl : public Stmt {
@@ -346,11 +397,18 @@ public:
     Stmt* body;
 };
 
+class StructDecl {
+public:
+    Token              name;
+    std::vector<FieldDef> fields;
+};
+
 struct ASTProgram {
     std::vector<FuncDecl*> functions;
     FuncDecl* mainFunction = nullptr;
 
     std::vector<NativeStmt*> natives;
+    std::vector<StructDecl*> structs;
 };
 
 #endif

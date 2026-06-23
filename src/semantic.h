@@ -8,7 +8,8 @@
 
 class SemanticAnalyzer : public ASTVisitor {
 public:
-    SemanticAnalyzer(SymbolTable& sym, ErrorReporter& err) : symbols(sym), err(err) { }
+    SemanticAnalyzer(SymbolTable& sym, ErrorReporter& err, StructRegistry& reg) 
+        : symbols(sym), err(err), registry(reg) { }
 
     void analyze(ASTProgram& program); // entry point; calls accept() on the root
 
@@ -24,26 +25,30 @@ public:
     void visit(ReturnStmt& node)   override;
     void visit(WhileStmt& node)    override; 
 
-    void visit(ArrayLiteral& node) override;
-    void visit(AssignExpr& node)   override;
-    void visit(BinaryExpr& node)   override;
-    void visit(CallExpr& node)     override;
-    void visit(CastExpr& node)     override;
-    void visit(FieldExpr& node)    override;
-    void visit(IndexExpr& node)    override;
-    void visit(IndexAssignExpr&)   override;
-    void visit(LiteralExpr& node)  override;
-    void visit(UnaryExpr& node)    override;
-    void visit(VarExpr& node)      override;
+    void visit(ArrayLiteral& node)  override;
+    void visit(AssignExpr& node)    override;
+    void visit(BinaryExpr& node)    override;
+    void visit(CallExpr& node)      override;
+    void visit(CastExpr& node)      override;
+    void visit(FieldExpr& node)     override;
+    void visit(FieldAssignExpr&)    override;
+    void visit(IndexExpr& node)     override;
+    void visit(IndexAssignExpr&)    override;
+    void visit(LiteralExpr& node)   override;
+    void visit(StructLiteral& node) override;
+    void visit(UnaryExpr& node)     override;
+    void visit(VarExpr& node)       override;
 
 private:
-    SymbolTable&   symbols;
-    ErrorReporter& err;
+    SymbolTable&    symbols;
+    ErrorReporter&  err;
+    StructRegistry& registry;
     Type currentReturnType = Type::Voidt; // set when entering a FuncDecl, checked in ReturnStmt
     int functionLinestart;
     int loopDepth = 0;
 
     ArrayType getArrayType(Expr* expr);
+    std::string getStructName(Expr* expr);
 };
 
 #endif

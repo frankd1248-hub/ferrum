@@ -96,14 +96,17 @@ void IRGen::visit(FuncDecl& fn) {
     currentFunc.returnType = fn.returnType;
 
     for (size_t i = 0; i < fn.params.size(); i++) {
-        currentFunc.params.push_back({ fn.params[i].name.lexeme, fn.params[i].type });
+        currentFunc.params.push_back({ fn.params[i].name.lexeme,
+                                       fn.params[i].type });
 
         IRValue dest = newTemp();
         varTemps[fn.params[i].name.lexeme] = dest.id;
 
-        // Param N → dest temp
+        if (fn.params[i].type == Type::Structt)
+            varStructNames[fn.params[i].name.lexeme] = fn.params[i].structName;
+
         emit({ IROp::Param, dest,
-               IRValue { .kind = IRValue::Kind::IntConst, .id = -1, .ival = (int)i },
+               IRValue { .kind=IRValue::Kind::IntConst, .id=-1, .ival=(int64_t)i },
                {}, "" });
     }
 
@@ -161,6 +164,26 @@ void IRGen::visit(LetStmt& stmt) {
                 emit({ IROp::ArrayStore, base, idx, val, "" });
             }
             return; // skip the normal Mov emission
+        } if (decl.type == Type::Structt) {
+            auto* slit = dynamic_cast<StructLiteral*>(decl.init);
+            const StructDef& def = registry->at(decl.structName);
+
+            IRValue base = newTemp();
+            varTemps[decl.name.lexeme]       = base.id;
+            varStructNames[decl.name.lexeme] = decl.structName;
+
+            emit({ IROp::StructAlloc, base,
+                IRValue { .kind=IRValue::Kind::IntConst, .id=-1,
+                            .ival=(int64_t)def.fields.size() },
+                {}, "" });
+
+            for (int i = 0; i < (int)slit->fields.size(); i++) {
+                slit->fields[i]->accept(*this);
+                IRValue val = lastValue;
+                IRValue idx = { .kind=IRValue::Kind::IntConst, .id=-1, .ival=i };
+                emit({ IROp::StructStore, base, idx, val, "" });
+            }
+            return;
         }
 
         IRValue dest = newTemp();
@@ -315,6 +338,25 @@ void IRGen::visit(CastExpr& cast) {
 }
 
 void IRGen::visit(FieldExpr& expr) {
+    if (expr.resolvedType != Type::Nullt &&
+        expr.object->resolvedType == Type::Structt) {
+        expr.object->accept(*this);
+        IRValue base = lastValue;
+
+        // get field index from registry
+        auto* var = dynamic_cast<VarExpr*>(expr.object);
+        const std::string& sname = varStructNames.at(var->name.lexeme);
+        const StructDef& def = registry->at(sname);
+        int fieldIdx = def.offsetOf(expr.field.lexeme) / 8;
+
+        IRValue dest = newTemp();
+        IRValue idx  = { .kind=IRValue::Kind::IntConst, .id=-1,
+                         .ival=(int64_t)fieldIdx };
+        emit({ IROp::StructLoad, dest, base, idx, "" });
+        lastValue = dest;
+        return;
+    }
+
     if (expr.field.lexeme == "len") {
         auto* var = dynamic_cast<VarExpr*>(expr.object);
         int size = varArrayInfo.at(var->name.lexeme).size;
@@ -324,6 +366,24 @@ void IRGen::visit(FieldExpr& expr) {
                {}, "" });
         lastValue = dest;
     }
+}
+
+void IRGen::visit(FieldAssignExpr& expr) {
+    expr.object->accept(*this);
+    IRValue base = lastValue;
+
+    auto* var = dynamic_cast<VarExpr*>(expr.object);
+    const std::string& sname = varStructNames.at(var->name.lexeme);
+    const StructDef& def = registry->at(sname);
+    int fieldIdx = def.offsetOf(expr.field.lexeme) / 8;
+
+    expr.value->accept(*this);
+    IRValue val = lastValue;
+    IRValue idx = { .kind=IRValue::Kind::IntConst, .id=-1,
+                    .ival=(int64_t)fieldIdx };
+
+    emit({ IROp::StructStore, base, idx, val, "" });
+    lastValue = val;
 }
 
 void IRGen::visit(IndexExpr& expr) {
@@ -390,6 +450,10 @@ void IRGen::visit(LiteralExpr& lit) {
     }
 
     lastValue = dest;
+}
+
+void IRGen::visit(StructLiteral& lit) {
+    
 }
 
 void IRGen::visit(UnaryExpr& unary) {

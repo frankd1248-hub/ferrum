@@ -26,7 +26,7 @@ static Expr* assign(Parser& p, bool canAssign) {
     VarExpr* target = dynamic_cast<VarExpr*>(p.previousExpr());
 
     if (!target) {
-        p.err.report(p.previous(), "Invalid assignment target.");
+        p.error(p.previous(), "Invalid assignment target.");
         return nullptr;
     }
 
@@ -57,7 +57,7 @@ static Expr* boolLit(Parser& parser, bool canAssign) {
 static Expr* call(Parser& p, bool canAssign) {
     VarExpr* callee = dynamic_cast<VarExpr*>(p.previousExpr());
     if (!callee) {
-        p.err.report(p.previous(), "Expected function name before '('.");
+        p.error(p.previous(), "Expected function name before '('.");
         return nullptr;
     }
 
@@ -81,9 +81,19 @@ static Expr* charLit(Parser& p, bool canAssign) {
 
 static Expr* dot(Parser& p, bool canAssign) {
     p.consume(TK_IDENTIFIER, "Expect field name after '.'.");
-    auto* expr   = new FieldExpr();
+    Token field = p.previous();
+
+    if (canAssign && p.match(TK_EQUAL)) {
+        FieldAssignExpr* assign  = new FieldAssignExpr();
+        assign->object = p.previousExpr();
+        assign->field  = field;
+        assign->value  = p.expression(PREC_ASSIGNMENT);
+        return assign;
+    }
+
+    FieldExpr* expr   = new FieldExpr();
     expr->object = p.previousExpr();
-    expr->field  = p.previous();
+    expr->field  = field;
     return expr;
 }
 
@@ -224,6 +234,7 @@ static ParseRule rules[] = {
     { nullptr,  nullptr, PREC_NONE       }, // TK_FOR
     { nullptr,  nullptr, PREC_NONE       }, // TK_WHILE 
     { nullptr,  nullptr, PREC_NONE       }, // TK_NATIVE
+    { nullptr,  nullptr, PREC_NONE       }, // TK_STRUCT
 };
 
 static Precedence getPrecedence(TokenType type) {
@@ -232,15 +243,15 @@ static Precedence getPrecedence(TokenType type) {
 
 Expr* Parser::expression(Precedence precedence) {
     advance();
-
     ParseFn prefixRule = rules[previous().type].prefix;
     if (prefixRule == nullptr) {
-        err.report(previous(), "Expect expression.");
+        error(previous(), "Expect expression.");
         return nullptr;
     }
 
     bool canAssign = precedence <= PREC_ASSIGNMENT;
     Expr* result = prefixRule(*this, canAssign);
+    if (!result) return nullptr;
     last = result;
 
     while (precedence < rules[peek().type].precedence) {
@@ -248,6 +259,7 @@ Expr* Parser::expression(Precedence precedence) {
         ParseFn infixRule = rules[previous().type].infix;
         if (infixRule == nullptr) break;
         result = infixRule(*this, canAssign);
+        if (!result) return nullptr;
         last = result;
     }
 
@@ -255,14 +267,14 @@ Expr* Parser::expression(Precedence precedence) {
 }
 
 Type Parser::parseTypeKeyword() {
-    if      (match(TK_BOOL))   return Type::Boolt;
-    else if (match(TK_CHAR))   return Type::Chart;
-    else if (match(TK_I32))    return Type::Int32t;
-    else if (match(TK_I64))    return Type::Int64t;
-    else if (match(TK_F32))    return Type::Float32t;
-    else if (match(TK_STRING)) return Type::Stringt;
-    else if (match(TK_VOID))   return Type::Voidt;
-
+    if (match(TK_I32))    return Type::Int32t;
+    if (match(TK_I64))    return Type::Int64t;
+    if (match(TK_F32))    return Type::Float32t;
+    if (match(TK_BOOL))   return Type::Boolt;
+    if (match(TK_CHAR))   return Type::Chart;
+    if (match(TK_STRING)) return Type::Stringt;
+    if (match(TK_VOID))   return Type::Voidt;
+    if (match(TK_IDENTIFIER)) return Type::Structt; // struct type by name
     return Type::Nullt;
 }
 
@@ -274,6 +286,7 @@ Type Parser::parseTypeKeyword_prev() {
         case TK_I64:    return Type::Int64t;
         case TK_F32:    return Type::Float32t;
         case TK_STRING: return Type::Stringt;
+        case TK_IDENTIFIER: return Type::Structt;
         case TK_VOID:   return Type::Voidt;
         default:        return Type::Nullt;
     }
@@ -354,9 +367,11 @@ FuncDecl* Parser::fnDeclaration() {
             consume(TK_IDENTIFIER, "Expect parameter name.");
             Token paramName = previous();
             consume(TK_COLON, "Expect ':' after parameter name.");
-            consume(TK_COLON, "Expect ':' after parameter name.");
             auto [type, arrayType] = parseTypeAnnotation();
-            fun->params.push_back({ paramName, type, arrayType });
+            fun->params.push_back(Param {
+                paramName, type, arrayType,
+                type == Type::Structt ? previous().lexeme : ""  // structName
+            });
         } while (match(TK_COMMA));
     }
     consume(TK_RIGHT_PAREN, "Expect ')' after parameters.");
@@ -412,6 +427,21 @@ NativeStmt* Parser::nativeStatement() {
     return stmt;
 }
 
+StructLiteral* Parser::structLiteralExpr(const std::string& structName) {
+    auto* lit = new StructLiteral();
+    lit->brace      = peek();
+    lit->structName = structName;
+
+    consume(TK_LEFT_BRACE, "Expect '{' for struct literal.");
+    if (!check(TK_RIGHT_BRACE)) {
+        do {
+            lit->fields.push_back(expression(PREC_ASSIGNMENT));
+        } while (match(TK_COMMA));
+    }
+    consume(TK_RIGHT_BRACE, "Expect '}' after struct literal.");
+    return lit;
+}
+
 LetStmt* Parser::letStatement(bool consumeSemicolon) {
     auto* stmt = new LetStmt();
 
@@ -428,6 +458,9 @@ LetStmt* Parser::letStatement(bool consumeSemicolon) {
             decl.type      = type;
             decl.arrayType = arrayType;
             decl.inferred  = false;
+
+            if (type == Type::Structt)
+                decl.structName = previous().lexeme;
         } else {
             // no annotation — infer from initializer
             decl.type     = Type::Nullt;
@@ -435,7 +468,11 @@ LetStmt* Parser::letStatement(bool consumeSemicolon) {
         }
 
         consume(TK_EQUAL, "Expect '=' after variable name.");
-        decl.init = expression(PREC_ASSIGNMENT);
+        if (decl.type == Type::Structt && check(TK_LEFT_BRACE)) {
+            decl.init = structLiteralExpr(decl.structName);
+        } else {
+            decl.init = expression(PREC_ASSIGNMENT);
+        }
 
         stmt->declarators.push_back(decl);
     } while (match(TK_COMMA));
@@ -443,6 +480,33 @@ LetStmt* Parser::letStatement(bool consumeSemicolon) {
     if (consumeSemicolon)
         consume(TK_SEMICOLON, "Expect ';' after let statement.");
     return stmt;
+}
+
+StructDecl* Parser::structDeclaration() {
+    StructDecl* decl = new StructDecl();
+
+    consume(TK_IDENTIFIER, "Expect struct name.");
+    decl->name = previous();
+
+    consume(TK_LEFT_BRACE, "Expect '{' after struct name.");
+
+    while (!check(TK_RIGHT_BRACE) && !isAtEnd()) {
+        FieldDef field;
+        consume(TK_IDENTIFIER, "Expect field name.");
+        field.name = previous().lexeme;
+        consume(TK_COLON, "Expect ':' after field name.");
+        auto [type, arrayType] = parseTypeAnnotation();
+        field.type      = type;
+        field.arrayType = arrayType;
+        // if type is a struct, the identifier is the struct name
+        if (type == Type::Structt)
+            field.structName = previous().lexeme;
+        decl->fields.push_back(field);
+    }
+
+    consume(TK_RIGHT_BRACE, "Expect '}' after struct fields.");
+    consume(TK_SEMICOLON, "Expect ';' after struct declaration.");
+    return decl;
 }
 
 ReturnStmt* Parser::returnStatement() {
@@ -470,19 +534,22 @@ Stmt* Parser::statement() {
     if (isAtEnd()) return nullptr;
     if (check(TK_RIGHT_BRACE)) return nullptr;
 
-    if (match(TK_BREAK))        return breakStatement();
-    if (match(TK_CONTINUE))     return continueStatement();
-    if (match(TK_FOR))          return forStatement();
-    if (match(TK_IF))           return ifStatement();
-    if (match(TK_LET))          return letStatement();
-    if (match(TK_RETURN))       return returnStatement();
-    if (match(TK_WHILE))        return whileStatement();
-    if (match(TK_LEFT_BRACE))   return block();
+    if (match(TK_IF))     return ifStatement();
+    if (match(TK_FOR))    return forStatement();
+    if (match(TK_WHILE))  return whileStatement();
+    if (match(TK_LET))    return letStatement();
+    if (match(TK_RETURN)) return returnStatement();
+    if (match(TK_BREAK))  return breakStatement();
+    if (match(TK_CONTINUE)) return continueStatement();
+    if (match(TK_LEFT_BRACE)) return block();
 
     Expr* expr = expression(PREC_NONE);
-    if (!expr) return nullptr;
+    if (!expr) {
+        synchronize();
+        return nullptr;
+    }
     consume(TK_SEMICOLON, "Expect ';' after expression statement.");
-    auto* stmt = new ExprStmt();
+    ExprStmt* stmt = new ExprStmt();
     stmt->expression = expr;
     return stmt;
 }
@@ -490,23 +557,46 @@ Stmt* Parser::statement() {
 ASTProgram Parser::parse() {
     program = {};
     while (!isAtEnd()) {
-        if (match(TK_NATIVE)) {
+        if (match(TK_STRUCT)) {
+            program.structs.push_back(structDeclaration());
+        } else if (match(TK_NATIVE)) {
             consume(TK_FN, "Expect 'fn' after 'native'.");
-            NativeStmt* native = nativeStatement();
+            program.natives.push_back(nativeStatement());
             consume(TK_SEMICOLON, "Expect ';' after native declaration.");
-            program.natives.push_back(native);
         } else {
             FuncDecl* fn = fnDeclaration();
-            program.functions.push_back(fn);
-            if (fn->name.lexeme == "main") {
-                if (!program.mainFunction)
+            if (fn) {
+                program.functions.push_back(fn);
+                if (fn->name.lexeme == "main")
                     program.mainFunction = fn;
-                else
-                    err.report(fn->name, "Cannot have more than one 'main'.");
             }
         }
     }
-    if (!program.mainFunction)
-        err.report(peek(), "No 'main' function defined.");
     return program;
+}
+
+void Parser::synchronize() {
+    panicMode = false;
+
+    while (!isAtEnd()) {
+        
+        if (previous().type == TK_SEMICOLON) return;
+
+        switch (peek().type) {
+            case TK_FN:
+            case TK_NATIVE:
+            case TK_LET:
+            case TK_IF:
+            case TK_FOR:
+            case TK_WHILE:
+            case TK_RETURN:
+            case TK_BREAK:
+            case TK_CONTINUE:
+            case TK_LEFT_BRACE:
+            case TK_RIGHT_BRACE: // end of a block — useful for nested errors
+                return;
+            default:
+                advance();
+        }
+    }
 }

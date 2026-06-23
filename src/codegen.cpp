@@ -115,6 +115,10 @@ void CodeGen::emitFunction(const IRFunction& fn) {
             for (int i = 0; i < instr.src1.ival; i++)
                 frame.allocateAnon();                // reserve data slots
             arrayBases[instr.dest.id] = dataBase;
+        } else if (instr.op == IROp::StructAlloc) {
+            int count = instr.src1.ival;
+            int base  = frame.allocateArray(instr.dest.id, count);
+            arrayBases[instr.dest.id] = base;
         } else {
             if (instr.dest.kind == IRValue::Kind::Temp && !regMap.contains(instr.dest.id))
                 frame.allocate(instr.dest.id);
@@ -215,11 +219,14 @@ void CodeGen::emitInstruction(const IRInstruction& instr) {
             emit("movzx\trax, al");
             emit("mov\t" + resolve(instr.dest) + ", rax");
             break;
-        case IROp::ToFloat: emitToFloat(instr); break;
-        case IROp::ToInt:   emitToInt(instr); break;
-        case IROp::ArrayAlloc: emitArrayAlloc(instr); break;
-        case IROp::ArrayStore: emitArrayStore(instr); break;
-        case IROp::ArrayLoad:  emitArrayLoad(instr);  break;
+        case IROp::ToFloat:     emitToFloat(instr); break;
+        case IROp::ToInt:       emitToInt(instr); break;
+        case IROp::ArrayAlloc:  emitArrayAlloc(instr); break;
+        case IROp::ArrayStore:  emitArrayStore(instr); break;
+        case IROp::ArrayLoad:   emitArrayLoad(instr);  break;
+        case IROp::StructAlloc: emitArrayAlloc(instr); break;
+        case IROp::StructStore: emitArrayStore(instr); break;
+        case IROp::StructLoad:  emitArrayLoad(instr);  break;
     }
 }
 

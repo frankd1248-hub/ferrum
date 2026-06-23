@@ -18,7 +18,8 @@ struct ArrayInfo {
 
 class IRGen : public ASTVisitor {
 public:
-    IRGen(SymbolTable* table) : table(table) { }
+    IRGen(SymbolTable* table, StructRegistry* reg) 
+        : table(table), registry(reg) { }
     IRProgram emit(ASTProgram* program); // entry point
 
     void visit(BlockStmt&)    override;
@@ -39,9 +40,11 @@ public:
     void visit(CallExpr&)     override;
     void visit(CastExpr&)     override;
     void visit(FieldExpr&)    override;
+    void visit(FieldAssignExpr&) override;
     void visit(IndexExpr&)    override;
     void visit(IndexAssignExpr&) override;
     void visit(LiteralExpr&)  override;
+    void visit(StructLiteral&) override;
     void visit(UnaryExpr&)    override;
     void visit(VarExpr&)      override;
 
@@ -58,12 +61,14 @@ private:
     std::string lastStringLabel;
 
     SymbolTable* table;
+    StructRegistry* registry;
     ASTProgram* AST;
 
     std::unordered_map<std::string, int> varTemps;
     std::unordered_map<std::string, std::string> stringLabels;
     std::vector<LoopLabels> loopStack = {};
     std::unordered_map<std::string, ArrayInfo> varArrayInfo;
+    std::unordered_map<std::string, std::string> varStructNames;
 
     IRValue newTemp();  // returns IRValue{Temp, tempCount_++}
     std::string newLabel(const std::string& prefix);
