@@ -126,7 +126,7 @@ inline std::string getOpString(IROp op) {
         case IROp::ArrayLoad:   return "loda";
         case IROp::StructAlloc: return "allocs";
         case IROp::StructStore: return "stos";
-        case IROp::StructLoad:  return "stol";
+        case IROp::StructLoad:  return "lods";
         default:                return "nop";
     }
 }
