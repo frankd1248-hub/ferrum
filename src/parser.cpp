@@ -201,8 +201,8 @@ static ParseRule rules[] = {
     { nullptr,  binary,  PREC_FACTOR     }, // TK_STAR
     { nullptr,  binary,  PREC_FACTOR     }, // TK_SLASH
     { nullptr,  assign,  PREC_ASSIGNMENT }, // TK_EQUAL
-    { nullptr,  binary,  PREC_COMPARISON }, // TK_EQUAL_EQUAL
-    { nullptr,  binary,  PREC_COMPARISON }, // TK_BANG_EQUAL
+    { nullptr,  binary,  PREC_EQUALITY   }, // TK_EQUAL_EQUAL
+    { nullptr,  binary,  PREC_EQUALITY   }, // TK_BANG_EQUAL
     { nullptr,  binary,  PREC_COMPARISON }, // TK_LESS
     { nullptr,  binary,  PREC_COMPARISON }, // TK_LESS_EQUAL
     { nullptr,  binary,  PREC_COMPARISON }, // TK_GREATER

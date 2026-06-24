@@ -83,8 +83,15 @@ int main(int argc, char** argv) {
 
     // cout << assembleInstruction << "\n" << linkInstruction << "\n" << deleteFiles << "\n";
 
-    system(assembleInstruction.c_str());
-    system(linkInstruction.c_str());
+    if (system(assembleInstruction.c_str()) != 0) {
+        cerr << "Error: Assembly failed.\n";
+        return 1;
+    }
+    
+    if (system(linkInstruction.c_str()) != 0) {
+        cerr << "Error: Linking failed.\n";
+        return 1;
+    }
     // system(deleteFiles.c_str());
 
     return EX_OK;

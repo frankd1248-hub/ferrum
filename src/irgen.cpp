@@ -199,6 +199,16 @@ void IRGen::visit(NativeStmt& stmt) {
 }
 
 void IRGen::visit(ReturnStmt& ret) {
+    if (!ret.expr) {
+        emit(IRInstruction {
+            IROp::Ret,
+            IRValue {},
+            IRValue { .kind=IRValue::Kind::IntConst, .id=-1, .ival=0 },
+            IRValue {}
+        });
+        return;
+    }
+
     ret.expr->accept(*this);
 
     emit(IRInstruction {
@@ -273,7 +283,7 @@ void IRGen::visit(BinaryExpr& bin) {
     IRValue right = lastValue;
     IRValue dest = newTemp();
 
-    IROp op;
+    IROp op = IROp::Add; //unreachable if sema passed
 
     bool isFloat = bin.resolvedType == Type::Float32t;
 
@@ -288,6 +298,9 @@ void IRGen::visit(BinaryExpr& bin) {
         case TK_LESS_EQUAL:    op = IROp::Leq; break;
         case TK_GREATER:       op = IROp::Gret; break;
         case TK_GREATER_EQUAL: op = IROp::Geq; break;
+        default:
+            // Should be unreachable if the semantic pass completed without error.
+            return;
     }
 
     emit(IRInstruction { op, dest, left, right, "" });
@@ -453,7 +466,22 @@ void IRGen::visit(LiteralExpr& lit) {
 }
 
 void IRGen::visit(StructLiteral& lit) {
-    
+    const StructDef& def = registry->at(lit.structName);
+
+    IRValue base = newTemp();
+    emit({ IROp::StructAlloc, base,
+        IRValue { .kind=IRValue::Kind::IntConst, .id=-1,
+                  .ival=(int64_t)def.fields.size() },
+        {}, "" });
+
+    for (int i = 0; i < (int)lit.fields.size(); i++) {
+        lit.fields[i]->accept(*this);
+        IRValue val = lastValue;
+        IRValue idx = { .kind=IRValue::Kind::IntConst, .id=-1, .ival=i };
+        emit({ IROp::StructStore, base, idx, val, "" });
+    }
+
+    lastValue = base;
 }
 
 void IRGen::visit(UnaryExpr& unary) {
@@ -462,13 +490,13 @@ void IRGen::visit(UnaryExpr& unary) {
     IRValue dest = newTemp();
 
     IROp op;
+    bool isFloat = unary.resolvedType == Type::Float32t;
 
     switch (unary.op.type) {
-        case TK_MINUS: op = IROp::Sub; break;
+        case TK_MINUS: op = isFloat ? IROp::FSub : IROp::Sub; break;
         case TK_BANG:  op = IROp::Not; break;
+        default:       op = IROp::Sub; break;
     }
-
-    bool isFloat = unary.resolvedType == Type::Float32t;
 
     emit(IRInstruction {
         op,

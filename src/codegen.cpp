@@ -253,7 +253,6 @@ void CodeGen::emitArrayLoad(const IRInstruction& instr) {
 void CodeGen::emitBinop(const IRInstruction& instr) {
     std::string dest = resolve(instr.dest);
     emit("mov\trax, " + resolve(instr.src1));
-    emit("mov\trax, " + resolve(instr.src1));
     emit("mov\tr9,  " + resolve(instr.src2));
 
     switch (instr.op) {
@@ -280,7 +279,12 @@ void CodeGen::emitFBinop(const IRInstruction& instr) {
         default: break;
     }
     
-    emit("movss\t" + fStackRef(instr.dest.id) + ", xmm0");
+    auto it = regMap.find(instr.dest.id);
+    if (it != regMap.end()) {
+        emit("movq\t" + it->second + ", xmm0");
+    } else {
+        emit("movss\t" + fStackRef(instr.dest.id) + ", xmm0");
+    }
 }
 
 void CodeGen::emitCall(const IRInstruction& instr) {

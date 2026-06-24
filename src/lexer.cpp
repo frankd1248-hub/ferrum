@@ -49,12 +49,14 @@ std::vector<Token> Lexer::tokenize() {
                         addToken(TK_SLASH, "/"); break;
                     }
 
-                    while (!match('\n')) {
+                    while (!isAtEnd() && peek() != '\n')
                         advance();
-                    }
 
-                    line++;
-                    lineStart = current;
+                    if (!isAtEnd()) {
+                        advance();
+                        line++;
+                        lineStart = current;
+                    }
                     break;
                 case '!': match('=') ? addToken(TK_BANG_EQUAL, "!=") : addToken(TK_BANG, "!"); break;
                 case '<': match('=') ? addToken(TK_LESS_EQUAL, "<=") : addToken(TK_LESS, "<"); break;
@@ -109,7 +111,10 @@ void Lexer::scanString() {
                 default:   value += peek(); break;
             }
         } else {
-            if (peek() == '\n') line++;
+            if (peek() == '\n') { 
+                line++; 
+                lineStart = current + 1; 
+            }
             value += peek();
         }
         advance();

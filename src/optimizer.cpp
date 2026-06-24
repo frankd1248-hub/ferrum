@@ -11,6 +11,7 @@ void Optimizer::optimizeFunction(IRFunction& fn) {
     constantFolding(fn.body);
     copyPropagation(fn.body);
     constantFolding(fn.body);
+    strengthReduction(fn.body);
     deadCodeElimination(fn.body);
     deadBranchElimination(fn.body);
     emptyLabelElimination(fn.body);
@@ -19,6 +20,7 @@ void Optimizer::optimizeFunction(IRFunction& fn) {
     unreachableCodeElimination(fn.body);
     copyPropagation(fn.body);
     constantFolding(fn.body);
+    strengthReduction(fn.body);
     deadCodeElimination(fn.body);
     emptyLabelElimination(fn.body);
     redundantJumpElimination(fn.body);
@@ -61,6 +63,64 @@ void Optimizer::constantFolding(std::vector<IRInstruction>& body) {
 
         IRValue lhs = resolve(instr.src1);
         IRValue rhs = resolve(instr.src2);
+
+        if (instr.op == IROp::ToInt &&
+            lhs.kind == IRValue::Kind::FloatConst) {
+            instr.op = IROp::Const;
+            instr.src1 = IRValue{
+                .kind = IRValue::Kind::IntConst,
+                .id   = -1,
+                .ival = (int64_t)lhs.fval
+            };
+            instr.src2 = {};
+            
+            if (instr.dest.kind == IRValue::Kind::Temp)
+                constants[instr.dest.id] = instr.src1;
+
+            continue;            
+        } else if (instr.op == IROp::ToFloat &&
+            lhs.kind == IRValue::Kind::IntConst) {
+            instr.op = IROp::FConst;
+            instr.src1 = IRValue{
+                .kind = IRValue::Kind::FloatConst,
+                .id   = -1,
+                .fval = (_Float32)lhs.ival
+            };
+            instr.src2 = {};
+            
+            if (instr.dest.kind == IRValue::Kind::Temp)
+                constants[instr.dest.id] = instr.src1;
+
+            continue;
+        } else if (instr.op == IROp::ToBool &&
+            lhs.kind == IRValue::Kind::IntConst) {
+            instr.op = IROp::Const;
+            instr.src1 = IRValue{
+                .kind = IRValue::Kind::IntConst,
+                .id   = -1,
+                .ival = (bool)lhs.ival
+            };
+            instr.src2 = {};
+            
+            if (instr.dest.kind == IRValue::Kind::Temp)
+                constants[instr.dest.id] = instr.src1;
+
+            continue;
+        } else if (instr.op == IROp::ToBool &&
+            lhs.kind == IRValue::Kind::FloatConst) {
+            instr.op = IROp::Const;
+            instr.src1 = IRValue{
+                .kind = IRValue::Kind::IntConst,
+                .id   = -1,
+                .ival = (lhs.fval != 0.0f)
+            };
+            instr.src2 = {};
+            
+            if (instr.dest.kind == IRValue::Kind::Temp)
+                constants[instr.dest.id] = instr.src1;
+
+            continue;
+        }
 
         bool lhsConst = lhs.kind == IRValue::Kind::IntConst ||
                         lhs.kind == IRValue::Kind::FloatConst;

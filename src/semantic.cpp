@@ -172,6 +172,12 @@ ArrayType SemanticAnalyzer::getArrayType(Expr* expr) {
 }
 
 void SemanticAnalyzer::visit(ReturnStmt& ret) {
+    if (!ret.expr) {
+        if (currentReturnType != Type::Voidt)
+            err.report(functionLinestart, 0, "Non-void function must return a value.");
+        return;
+    }
+    
     ret.expr->accept(*this);
     Type actualReturnType = ret.expr->resolvedType;
     if (actualReturnType != currentReturnType) {
@@ -239,7 +245,7 @@ void SemanticAnalyzer::visit(BinaryExpr& bin) {
                 if (L != Type::Float32t || R != Type::Float32t)
                     err.report(bin.op, "Mixed i32/f32 arithmetic requires an explicit cast.");
                 bin.resolvedType = Type::Float32t;
-            } if ((L == Type::Int32t || L == Type::Int64t) &&
+            } else if ((L == Type::Int32t || L == Type::Int64t) &&
                 (R == Type::Int32t || R == Type::Int64t)) {
                 bin.resolvedType = (L == Type::Int64t || R == Type::Int64t)
                     ? Type::Int64t : Type::Int32t;

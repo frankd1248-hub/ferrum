@@ -38,7 +38,7 @@ private:
         return src[current + 1];
     }
 
-    char match(char expected) {
+    bool match(char expected) {
         if (isAtEnd()) return false;
         if (src[current] != expected) return false;
         current++;

@@ -108,10 +108,11 @@ std::unordered_map<int, std::string> RegAlloc::linearScan(std::vector<LiveInterv
                 });
 
             if (it != active.end() && it->end > iv.end) {
-                regMap[iv.tempId] = it->reg;
+                std::string spilledReg = it->reg;
                 regMap.erase(it->tempId);
                 active.erase(it);
-                active.push_back({ iv.end, iv.tempId, regMap[iv.tempId] });
+                regMap[iv.tempId] = spilledReg;
+                active.push_back({ iv.end, iv.tempId, spilledReg });
             }
 
         } else {
